@@ -47,7 +47,7 @@ def calys(x, num_inputs, num_rules, centers, sigmas, weights, biases):
     output = numerator / (denominator + 1e-8)
     return output, rule_weights, rule_outputs, denominator
 
-def treinamento(X_train, y_train, num_rules, alpha=0.01, max_epochs=30):
+def treinamento(X_train, y_train, num_rules, alpha=0.001, max_epochs=10):
     num_samples, num_features = X_train.shape
     
     # Inicialização dos parâmetros
@@ -59,6 +59,7 @@ def treinamento(X_train, y_train, num_rules, alpha=0.01, max_epochs=30):
     q = np.random.randn(num_rules) * 0.1
     
     for epoch in range(max_epochs):
+        print(f"Epoch {epoch + 1}/{max_epochs}")
         total_error = 0
         # Embaralhar os dados (opcional, para estocasticidade)
         indices = np.random.permutation(num_samples)
@@ -97,6 +98,7 @@ def treinamento(X_train, y_train, num_rules, alpha=0.01, max_epochs=30):
     return c, s, p, q, total_error / num_samples
 
 def main():
+    # num_rules influencia a quantidade de pesos, tem que ter atenção para inflencia disso no restante da rede
     num_rules = 10
     num_clusters = 3  # Número de clusters do KMeans
 

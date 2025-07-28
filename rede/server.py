@@ -53,7 +53,7 @@ def handle_client(conn, addr):
             print(f"[✓] {len(pesos)} pesos recebidos.")
             print(pesos[:5], "...")  # mostra os primeiros 5
 
-            c = np.array(pesos[60:120]).reshape(6,10) 
+            c = np.array(pesos[0:60]).reshape(6,10) 
             s = np.array(pesos[60:120]).reshape(6,10) 
             p = np.array(pesos[120:180]).reshape(6,10) 
             q = np.array(pesos[180:]).reshape(10,) 
