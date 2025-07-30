@@ -12,7 +12,8 @@ OPCODE_SEND_WEIGHTS = 0x01
 OPCODE_ACK = 0x02
 OPCODE_ERROR = 0x03
 OPCODE_REQUEST_WEIGHTS = 0x04
-NUM_WEIGHTS = 190
+OPCODE_SEND_METRICS = 0x05
+# NUM_WEIGHTS = 190
 
 HEADER_FORMAT = "<H B H"  # Magic (2 bytes), Opcode (1 byte), Count (2 bytes)
 HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
@@ -23,6 +24,43 @@ def load_weights():
     p = pd.read_csv('global_parameters/p.csv', header=None).values
     q = pd.read_csv('global_parameters/q.csv', header=None).values.flatten()
     return c.flatten().tolist() + s.flatten().tolist() + p.flatten().tolist() + q.tolist()
+
+def load_metrics():
+    metrics = pd.read_csv('local_parameters/metrics.csv') 
+    return metrics
+
+def build_packet(weights):
+    header = struct.pack(HEADER_FORMAT, MAGIC_HEADER, OPCODE_SEND_WEIGHTS, len(weights))
+    body = struct.pack('<' + 'f' * len(weights), *weights)
+    return header + body
+
+def build_metrics_packet(metrics):
+    MAGIC_HEADER = 0xABCD
+    OPCODE_SEND_METRICS = 0x05
+
+    header = struct.pack("<H B H", MAGIC_HEADER, OPCODE_SEND_METRICS, len(metrics))
+
+    body = b""
+    for name, value in metrics.items():
+        name_bytes = name.encode('ascii')
+        name_len = len(name_bytes)
+        body += struct.pack("<B", name_len)
+        body += name_bytes
+        body += struct.pack("<f", value)
+
+    return header + body
+
+def send_weights(sock):
+    weights = load_weights()
+    packet = build_packet(weights)    
+    sock.sendall(packet)
+    print(f"[→] Packet with {len(weights)} weights sent")
+
+def send_metrics(sock):
+    metrics = load_metrics()
+    packet = build_metrics_packet(metrics)
+    sock.sendall(packet)
+    print("[→] Metrics packet sent")
 
 def save_weights(sock):
     header_bytes = sock.recv(HEADER_SIZE)
@@ -70,16 +108,7 @@ def save_weights(sock):
     sock.sendall(ack_packet)
     print("[←] Ack sent")
 
-def build_packet(weights):
-    header = struct.pack(HEADER_FORMAT, MAGIC_HEADER, OPCODE_SEND_WEIGHTS, len(weights))
-    body = struct.pack('<' + 'f' * len(weights), *weights)
-    return header + body
 
-def send_weights(sock):
-    weights = load_weights()
-    packet = build_packet(weights)    
-    sock.sendall(packet)
-    print(f"[→] Packet with {len(weights)} weights sent")
 
 def listen_for_commands(sock):
     while True:
@@ -100,6 +129,7 @@ def listen_for_commands(sock):
         elif opcode == OPCODE_REQUEST_WEIGHTS:
             print("[⇈] Server requested weights")
             send_weights(sock)
+            send_metrics(sock)
         elif opcode == OPCODE_ACK:
             print("[✓] Ack received from server")
         else:

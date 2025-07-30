@@ -168,5 +168,12 @@ def main():
     print(f"Accuracy: {accuracy:.2f}%")
     print(f"Mean Percentage Error: {error_percent:.2f}%")
 
+    metrics = {
+        'accuracy': accuracy,
+        'mean_percentage_error': error_percent
+    }
+
+    pd.DataFrame(metrics).to_csv('parametros_locais/metricas.csv', index=False)
+
 if __name__ == "__main__":
     main()

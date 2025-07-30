@@ -37,6 +37,8 @@ Cada mensagem enviada segue o seguinte layout binário:
 | 0x02   | Resposta/Ack             |
 | 0x03   | Erro ou pacote inválido  |
 | 0x04   | Solicita envio de pesos  |
+| 0x04   | Envio de metricas        |
+
 
 
 Opcodes adicionais podem ser definidos no futuro conforme necessário.
