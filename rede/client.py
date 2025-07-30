@@ -108,8 +108,6 @@ def save_weights(sock):
     sock.sendall(ack_packet)
     print("[←] Ack sent")
 
-
-
 def listen_for_commands(sock):
     while True:
         header_bytes = sock.recv(HEADER_SIZE)
