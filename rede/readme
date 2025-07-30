@@ -31,11 +31,13 @@ Cada mensagem enviada segue o seguinte layout binário:
 
 ## 🧾 Tabela de Opcodes
 
-| Opcode | Significado             |
+| Opcode | Significado              |
 |--------|--------------------------|
 | 0x01   | Envio de pesos           |
 | 0x02   | Resposta/Ack             |
 | 0x03   | Erro ou pacote inválido  |
+| 0x04   | Solicita envio de pesos  |
+
 
 Opcodes adicionais podem ser definidos no futuro conforme necessário.
 

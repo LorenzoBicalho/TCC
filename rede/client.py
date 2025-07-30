@@ -1,50 +1,118 @@
 import socket
 import struct
-import random
 import pandas as pd
+import numpy as np
 
-# Configurações
+# Configuration
 HOST = '127.0.0.1'
 PORT = 9000
 
 MAGIC_HEADER = 0xABCD
-OPCODE_SEND_PESOS = 0x01
-QTD_PESOS = 190
+OPCODE_SEND_WEIGHTS = 0x01
+OPCODE_ACK = 0x02
+OPCODE_ERROR = 0x03
+OPCODE_REQUEST_WEIGHTS = 0x04
+NUM_WEIGHTS = 190
 
-HEADER_FORMAT = "<H B H"  # Magic (2 bytes), Opcode (1 byte), Quantidade (2 bytes)
+HEADER_FORMAT = "<H B H"  # Magic (2 bytes), Opcode (1 byte), Count (2 bytes)
+HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
 
-def get_weights():
-    c = pd.read_csv('parametros_locais/c.csv', header=None).values
-    s = pd.read_csv('parametros_locais/s.csv', header=None).values
-    p = pd.read_csv('parametros_locais/p.csv', header=None).values
-    q = pd.read_csv('parametros_locais/q.csv', header=None).values.flatten()
+def load_weights():
+    c = pd.read_csv('global_parameters/c.csv', header=None).values
+    s = pd.read_csv('global_parameters/s.csv', header=None).values
+    p = pd.read_csv('global_parameters/p.csv', header=None).values
+    q = pd.read_csv('global_parameters/q.csv', header=None).values.flatten()
     return c.flatten().tolist() + s.flatten().tolist() + p.flatten().tolist() + q.tolist()
 
-def montar_pacote(pesos):
-    header = struct.pack(HEADER_FORMAT, MAGIC_HEADER, OPCODE_SEND_PESOS, len(pesos))
-    body = struct.pack('<' + 'f' * len(pesos), *pesos)
+def save_weights(sock):
+    header_bytes = sock.recv(HEADER_SIZE)
+    if not header_bytes or len(header_bytes) < HEADER_SIZE:
+        print("[!] Invalid or incomplete header.")
+        return
+
+    magic, opcode, count = struct.unpack(HEADER_FORMAT, header_bytes)
+    if magic != MAGIC_HEADER:
+        print(f"[!] Invalid magic header: {hex(magic)}")
+        return
+
+    print(f"[>] Opcode: {opcode}, Number of weights: {count}")
+
+    expected_bytes = count * 4
+    weight_bytes = b''
+    while len(weight_bytes) < expected_bytes:
+        chunk = sock.recv(expected_bytes - len(weight_bytes))
+        if not chunk:
+            print("[!] Connection closed before full data received.")
+            return
+        weight_bytes += chunk
+
+    if len(weight_bytes) != expected_bytes:
+        print("[!] Incomplete weight data.")
+        return
+
+    weights = struct.unpack('<' + 'f' * count, weight_bytes)
+    print(f"[✓] {len(weights)} weights received.")
+    print(weights[:5], "...")
+
+    # Save files
+    c = np.array(weights[0:60]).reshape(6, 10) 
+    s_arr = np.array(weights[60:120]).reshape(6, 10) 
+    p = np.array(weights[120:180]).reshape(6, 10) 
+    q = np.array(weights[180:]).reshape(10,) 
+
+    pd.DataFrame(c).to_csv('drivers/d1/c.csv', index=False, header=None)
+    pd.DataFrame(s_arr).to_csv('drivers/d1/s.csv', index=False, header=None)
+    pd.DataFrame(p).to_csv('drivers/d1/p.csv', index=False, header=None)
+    pd.DataFrame(q).to_csv('drivers/d1/q.csv', index=False, header=None)
+
+    # Send ACK
+    ack_packet = struct.pack(HEADER_FORMAT, MAGIC_HEADER, OPCODE_ACK, 0)
+    sock.sendall(ack_packet)
+    print("[←] Ack sent")
+
+def build_packet(weights):
+    header = struct.pack(HEADER_FORMAT, MAGIC_HEADER, OPCODE_SEND_WEIGHTS, len(weights))
+    body = struct.pack('<' + 'f' * len(weights), *weights)
     return header + body
 
-def cliente_envia_pesos():
-    pesos = get_weights()
-    pacote = montar_pacote(pesos)
+def send_weights(sock):
+    weights = load_weights()
+    packet = build_packet(weights)    
+    sock.sendall(packet)
+    print(f"[→] Packet with {len(weights)} weights sent")
 
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect((HOST, PORT))
-        print(f"[↪] Conectado ao servidor {HOST}:{PORT}")
-        s.sendall(pacote)
-        print(f"[→] Pacote com {len(pesos)} pesos enviado")
+def listen_for_commands(sock):
+    while True:
+        header_bytes = sock.recv(HEADER_SIZE)
+        if not header_bytes or len(header_bytes) < HEADER_SIZE:
+            print("[X] Connection closed by server.")
+            break
 
-        # Espera ack (opcional)
-        ack = s.recv(5)  # 2 (magic) + 1 (opcode) + 2 (qtd)
-        if ack and len(ack) == 5:
-            magic, opcode, qtd = struct.unpack(HEADER_FORMAT, ack)
-            if magic == MAGIC_HEADER and opcode == 0x02:
-                print("[✓] Ack recebido do servidor")
-            else:
-                print(f"[!] Resposta inválida: magic={hex(magic)}, opcode={opcode}")
+        magic, opcode, count = struct.unpack(HEADER_FORMAT, header_bytes)
+
+        if magic != MAGIC_HEADER:
+            print(f"[!] Invalid magic header: {hex(magic)}")
+            continue
+
+        if opcode == OPCODE_SEND_WEIGHTS:
+            print("[⇋] Receiving weights from server")
+            save_weights(sock)
+        elif opcode == OPCODE_REQUEST_WEIGHTS:
+            print("[⇈] Server requested weights")
+            send_weights(sock)
+        elif opcode == OPCODE_ACK:
+            print("[✓] Ack received from server")
         else:
-            print("[!] Nenhuma resposta ou resposta incompleta")
+            print(f"[!] Unknown opcode: {opcode}")
+
+def connect_to_server():
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.connect((HOST, PORT))
+            print(f"[↪] Connected to server at {HOST}:{PORT}")
+            listen_for_commands(sock)
+    except Exception as e:
+        print(f"[!] Error connecting to server: {e}")
 
 if __name__ == "__main__":
-    cliente_envia_pesos()
+    connect_to_server()

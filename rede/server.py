@@ -2,8 +2,6 @@ import socket
 import struct
 import pandas as pd
 import numpy as np
-import numpy as np
-
 
 # Configurações do protocolo
 HOST = '127.0.0.1'  # localhost
