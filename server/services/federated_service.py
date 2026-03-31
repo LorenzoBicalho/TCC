@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
-from config import settings
+from db.config import settings
 from db.models import Client, ClientSubmission, FederationRound, GlobalModelVersion, RoundClientAggregate
 from db.schemas import LatestModelResponse, SubmitWeightsRequest, SubmitWeightsResponse, WeightPayload
 from utils import average_vectors

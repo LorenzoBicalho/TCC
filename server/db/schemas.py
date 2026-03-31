@@ -1,17 +1,24 @@
 from datetime import datetime
 from uuid import UUID
-
 from pydantic import BaseModel, Field
+import os
+from dataclasses import dataclass
+from dotenv import load_dotenv
 
+load_dotenv()
+
+min_length_weights = os.getenv("MIN_LENGTH_WEIGHTS")
+max_length_weights = os.getenv("MAX_LENGTH_WEIGHTS")
+length_centroids = os.getenv("LENGTH_CENTROIDS")
 
 class WeightPayload(BaseModel):
-    c: list[float] = Field(min_length=10, max_length=10)
-    p: list[float] = Field(min_length=50, max_length=50)
-    s: list[float] = Field(min_length=50, max_length=50)
-    q: list[float] = Field(min_length=50, max_length=50)
-    cluster_aggressive: list[float] = Field(min_length=15, max_length=15)
-    cluster_normal: list[float] = Field(min_length=15, max_length=15)
-    cluster_calm: list[float] = Field(min_length=15, max_length=15)
+    c: list[float] = Field(min_length=max_length_weights, max_length=max_length_weights)
+    p: list[float] = Field(min_length=max_length_weights, max_length=max_length_weights)
+    s: list[float] = Field(min_length=max_length_weights, max_length=max_length_weights)
+    q: list[float] = Field(min_length=min_length_weights, max_length=min_length_weights)
+    cluster_aggressive: list[float] = Field(min_length=length_centroids, max_length=length_centroids)
+    cluster_normal: list[float] = Field(min_length=length_centroids, max_length=length_centroids)
+    cluster_calm: list[float] = Field(min_length=length_centroids, max_length=length_centroids)
 
 
 class ClientRegisterRequest(BaseModel):

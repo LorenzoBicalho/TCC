@@ -61,13 +61,13 @@ class ClientSubmission(Base):
     version = Column(Integer, nullable=False)  # model version the client was running
 
     # Weight arrays — sizes enforced at application level
-    c = Column(ARRAY(Float), nullable=False)                   # [10]
+    c = Column(ARRAY(Float), nullable=False)                   # [50]
     p = Column(ARRAY(Float), nullable=False)                   # [50]
     s = Column(ARRAY(Float), nullable=False)                   # [50]
-    q = Column(ARRAY(Float), nullable=False)                   # [50]
-    cluster_aggressive = Column(ARRAY(Float), nullable=False)  # [15]
-    cluster_normal = Column(ARRAY(Float), nullable=False)      # [15]
-    cluster_calm = Column(ARRAY(Float), nullable=False)        # [15]
+    q = Column(ARRAY(Float), nullable=False)                   # [10]
+    cluster_aggressive = Column(ARRAY(Float), nullable=False)  # [5]
+    cluster_normal = Column(ARRAY(Float), nullable=False)      # [5]
+    cluster_calm = Column(ARRAY(Float), nullable=False)        # [5]
 
     submitted_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     used_in_aggregation = Column(Boolean, nullable=False, default=False)
