@@ -1,0 +1,60 @@
+# Ambientes virtuais
+venv/
+.env/
+.venv/
+env/
+
+# Bytecode e cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Arquivos de log
+*.log
+
+# Arquivos de banco de dados
+*.sqlite3
+*.db
+
+# Configurações locais
+*.env
+.env.*
+
+# Pastas de builds
+build/
+dist/
+*.egg-info/
+
+# Arquivos de pacotes Python
+*.egg
+*.whl
+
+# IDEs e editores
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Arquivos de testes
+.coverage
+.tox/
+.nox/
+.pytest_cache/
+
+# Jupyter Notebooks checkpoints
+.ipynb_checkpoints/
+
+# pip cache
+pip-wheel-metadata/
+
+# Arquivos de mypy, pylint, etc
+.mypy_cache/
+.pyre/
+.pytype/
+
+# PyInstaller
+*.spec
