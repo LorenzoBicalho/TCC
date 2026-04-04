@@ -1,0 +1,8 @@
+SELECT 
+    client_submissions.id,
+    client_submissions.client_id,
+    clients.device_identifier,
+    client_submissions.version,
+    client_submissions.used_in_aggregation
+FROM client_submissions
+JOIN clients ON client_submissions.client_id = clients.id;

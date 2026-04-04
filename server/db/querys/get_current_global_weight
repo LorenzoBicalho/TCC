@@ -1,1 +1,6 @@
+SELECT * FROM global_model_versions
+
 SELECT * FROM global_model_versions WHERE is_current = true
+
+SELECT * FROM federation_rounds 
+

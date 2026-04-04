@@ -7,9 +7,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-min_length_weights = os.getenv("MIN_LENGTH_WEIGHTS")
-max_length_weights = os.getenv("MAX_LENGTH_WEIGHTS")
-length_centroids = os.getenv("LENGTH_CENTROIDS")
+min_length_weights = int(os.getenv("MIN_LENGTH_WEIGHTS"))
+max_length_weights = int(os.getenv("MAX_LENGTH_WEIGHTS"))
+length_centroids = int(os.getenv("LENGTH_CENTROIDS"))
 
 class WeightPayload(BaseModel):
     c: list[float] = Field(min_length=max_length_weights, max_length=max_length_weights)

@@ -1,0 +1,3 @@
+SELECT * FROM clients
+
+DELETE FROM clients WHERE clients.id = '161bf210-1441-4eb3-909c-774684c1b480'
