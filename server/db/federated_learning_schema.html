@@ -36,9 +36,9 @@ const { svg } = await mermaid.render('erd-svg', `erDiagram
     uuid client_id FK
     uuid round_id FK
     int version
-    float[] c
-    float[] p
-    float[] s
+    float[][] c
+    float[][] p
+    float[][] s
     float[] q
     float[] cluster_aggressive
     float[] cluster_normal
@@ -51,9 +51,9 @@ const { svg } = await mermaid.render('erd-svg', `erDiagram
     uuid round_id FK
     uuid client_id FK
     int version
-    float[] c
-    float[] p
-    float[] s
+    float[][] c
+    float[][] p
+    float[][] s
     float[] q
     float[] cluster_aggressive
     float[] cluster_normal
@@ -64,9 +64,9 @@ const { svg } = await mermaid.render('erd-svg', `erDiagram
     uuid id PK
     uuid round_id FK
     int version
-    float[] c
-    float[] p
-    float[] s
+    float[][] c
+    float[][] p
+    float[][] s
     float[] q
     float[] cluster_aggressive
     float[] cluster_normal

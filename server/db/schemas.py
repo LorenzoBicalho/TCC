@@ -1,24 +1,47 @@
 from datetime import datetime
+from typing import Self
 from uuid import UUID
-from pydantic import BaseModel, Field
 import os
-from dataclasses import dataclass
+
 from dotenv import load_dotenv
+from pydantic import BaseModel, Field, model_validator
 
 load_dotenv()
 
-min_length_weights = int(os.getenv("MIN_LENGTH_WEIGHTS"))
-max_length_weights = int(os.getenv("MAX_LENGTH_WEIGHTS"))
-length_centroids = int(os.getenv("LENGTH_CENTROIDS"))
+NUM_FEATURES = int(os.getenv("NUM_FEATURES", "5"))
+NUM_RULES = int(os.getenv("NUM_RULES", "5"))
+LENGTH_CENTROIDS = int(os.getenv("LENGTH_CENTROIDS", "5"))
+
 
 class WeightPayload(BaseModel):
-    c: list[float] = Field(min_length=max_length_weights, max_length=max_length_weights)
-    p: list[float] = Field(min_length=max_length_weights, max_length=max_length_weights)
-    s: list[float] = Field(min_length=max_length_weights, max_length=max_length_weights)
-    q: list[float] = Field(min_length=min_length_weights, max_length=min_length_weights)
-    cluster_aggressive: list[float] = Field(min_length=length_centroids, max_length=length_centroids)
-    cluster_normal: list[float] = Field(min_length=length_centroids, max_length=length_centroids)
-    cluster_calm: list[float] = Field(min_length=length_centroids, max_length=length_centroids)
+    c: list[list[float]]
+    p: list[list[float]]
+    s: list[list[float]]
+    q: list[float]
+    cluster_aggressive: list[float]
+    cluster_normal: list[float]
+    cluster_calm: list[float]
+
+    @model_validator(mode="after")
+    def _check_shapes(self) -> Self:
+        for name in ("c", "p", "s"):
+            m = getattr(self, name)
+            if len(m) != NUM_FEATURES:
+                raise ValueError(f"{name} must have {NUM_FEATURES} rows (NUM_FEATURES).")
+            for i, row in enumerate(m):
+                if len(row) != NUM_RULES:
+                    raise ValueError(
+                        f"{name} row {i} must have length {NUM_RULES} (NUM_RULES)."
+                    )
+        if len(self.q) != NUM_RULES:
+            raise ValueError(f"q must have length {NUM_RULES} (NUM_RULES).")
+        for name in ("cluster_aggressive", "cluster_normal", "cluster_calm"):
+            v = getattr(self, name)
+            if len(v) != LENGTH_CENTROIDS:
+                raise ValueError(
+                    f"{name} must have length {LENGTH_CENTROIDS} (LENGTH_CENTROIDS)."
+                )
+        return self
 
 
 class ClientRegisterRequest(BaseModel):

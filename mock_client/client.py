@@ -30,9 +30,8 @@ SCALE_VALUES = 1.0 / (MAX_VALUES - MIN_VALUES)
 
 NUM_FEATURES = len(FEATURES)
 NUM_RULES = 5
-CPS_LEN = NUM_FEATURES * NUM_RULES  # 25; must match server WeightPayload c/p/s
-Q_LEN = NUM_RULES  # 5; must match server q
-CENTROID_LEN = NUM_FEATURES  # 5; each cluster_* on server
+Q_LEN = NUM_RULES  # must match server q length (NUM_RULES)
+CENTROID_LEN = NUM_FEATURES  # each cluster_* on server (LENGTH_CENTROIDS / NUM_FEATURES)
 
 CLIENT_LETTERS = tuple(chr(ord("A") + i) for i in range(10))  # A..J
 
@@ -236,15 +235,25 @@ def _pad_truncate(arr: np.ndarray, length: int) -> list[float]:
     return out.tolist()
 
 
+def _nested_matrix_for_payload(mat: np.ndarray) -> list[list[float]]:
+    """c/p/s as NUM_FEATURES×NUM_RULES nested lists (matches server WeightPayload)."""
+    flat = np.asarray(mat, dtype=np.float64).reshape(-1)
+    cells = NUM_FEATURES * NUM_RULES
+    out = np.zeros(cells, dtype=np.float64)
+    n = min(cells, flat.size)
+    out[:n] = flat[:n]
+    return out.reshape(NUM_FEATURES, NUM_RULES).tolist()
+
+
 def weight_payload_from_arrays(local_params: dict, centroids: np.ndarray | None) -> dict:
     """Build JSON body fragment matching server WeightPayload (sizes aligned with server/.env)."""
     if centroids is None or centroids.shape != (3, NUM_FEATURES):
         centroids = np.tile(np.linspace(0.2, 0.8, NUM_FEATURES), (3, 1)).astype(np.float64)
 
     return {
-        "c": _pad_truncate(local_params["c"], CPS_LEN),
-        "p": _pad_truncate(local_params["p"], CPS_LEN),
-        "s": _pad_truncate(local_params["s"], CPS_LEN),
+        "c": _nested_matrix_for_payload(local_params["c"]),
+        "p": _nested_matrix_for_payload(local_params["p"]),
+        "s": _nested_matrix_for_payload(local_params["s"]),
         "q": _pad_truncate(local_params["q"], Q_LEN),
         "cluster_aggressive": _pad_truncate(centroids[0], CENTROID_LEN),
         "cluster_normal": _pad_truncate(centroids[1], CENTROID_LEN),

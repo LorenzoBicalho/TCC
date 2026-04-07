@@ -14,10 +14,6 @@ if SERVER_DIR not in sys.path:
 from db.models import Base, FederationRound, GlobalModelVersion
 from db.session import SessionLocal, engine
 
-min_length_weights = int(os.getenv("MIN_LENGTH_WEIGHTS"))
-max_length_weights = int(os.getenv("MAX_LENGTH_WEIGHTS"))
-length_centroids = int(os.getenv("LENGTH_CENTROIDS"))
-
 num_rules = int(os.getenv("NUM_RULES"))
 num_features = int(os.getenv("NUM_FEATURES"))
 
@@ -189,14 +185,14 @@ def seed_initial_global_model(
             version=0,
             is_current=True,
 
-            c=model_params["c"].flatten().tolist(),
-            p=model_params["p"].flatten().tolist(),
-            s=model_params["s"].flatten().tolist(),
-            q=model_params["q"].flatten().tolist(),
+            c=model_params["c"].tolist(),
+            p=model_params["p"].tolist(),
+            s=model_params["s"].tolist(),
+            q=model_params["q"].tolist(),
 
-            cluster_aggressive=model_params["centroids"]["aggressive"].flatten().tolist(),
-            cluster_normal=model_params["centroids"]["normal"].flatten().tolist(),
-            cluster_calm=model_params["centroids"]["calm"].flatten().tolist(),
+            cluster_aggressive=np.asarray(model_params["centroids"]["aggressive"]).flatten().tolist(),
+            cluster_normal=np.asarray(model_params["centroids"]["normal"]).flatten().tolist(),
+            cluster_calm=np.asarray(model_params["centroids"]["calm"]).flatten().tolist(),
         )
 
         db.add(model)
