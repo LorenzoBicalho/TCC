@@ -9,7 +9,6 @@ from controllers.federated import (
     submit_client_weights,
 )
 from controllers.client import register_client
-from db.models import Base
 from db.schemas import (
     AggregateResponse,
     ClientRegisterRequest,
@@ -19,10 +18,10 @@ from db.schemas import (
     SubmitWeightsRequest,
     SubmitWeightsResponse,
 )
-from db.session import engine, get_db
+from db.session import ensure_schema, get_db
 
 app = FastAPI(title="Federated Learning Server")
-Base.metadata.create_all(bind=engine)
+ensure_schema()
 DbDependency = Annotated[Session, Depends(get_db)]
 
 

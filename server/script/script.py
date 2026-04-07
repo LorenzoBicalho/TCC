@@ -11,8 +11,8 @@ SERVER_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if SERVER_DIR not in sys.path:
     sys.path.insert(0, SERVER_DIR)
 
-from db.models import Base, FederationRound, GlobalModelVersion
-from db.session import SessionLocal, engine
+from db.models import FederationRound, GlobalModelVersion
+from db.session import SessionLocal, ensure_schema
 
 num_rules = int(os.getenv("NUM_RULES"))
 num_features = int(os.getenv("NUM_FEATURES"))
@@ -140,7 +140,7 @@ def seed_initial_global_model(
     init_mode: str = "load"
 ) -> None:
 
-    Base.metadata.create_all(bind=engine)
+    ensure_schema()
 
     with SessionLocal() as db:
 
