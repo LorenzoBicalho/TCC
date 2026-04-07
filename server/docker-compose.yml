@@ -11,6 +11,7 @@ services:
       POSTGRES_DB: ${DB_NAME:-driving_db}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
     # ports:
     #   - "5432:5432"   # remove or restrict in production
 
@@ -21,11 +22,8 @@ services:
       dockerfile: Dockerfile
     container_name: driving_server
     restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@db:5432/${DB_NAME:-driving_db}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${DB_PASSWORD}@db:5432/${DB_NAME:-driving_db}
       ENVIRONMENT: ${ENVIRONMENT:-production}
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
     ports:

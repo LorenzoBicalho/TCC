@@ -8,11 +8,14 @@ db_password = os.getenv("DB_PASSWORD")
 db_host = os.getenv("DB_HOST", "localhost")
 db_port = os.getenv("DB_PORT", "5432")
 db_name = os.getenv("DB_NAME")
+db_user = os.getenv("POSTGRES_USER", "postgres")
 
 if os.getenv("ENVIRONMENT") == "production":
     DATABASE_URL = os.getenv("DATABASE_URL")
 else:
-    DATABASE_URL = f"postgresql://postgres:{db_password}@{db_host}:{db_port}/{db_name}"
+    DATABASE_URL = (
+        f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+    )
 
 min_clients_ratio_for_aggregation = float(
     os.getenv("MIN_CLIENTS_RATIO_FOR_AGGREGATION", "0.75")
