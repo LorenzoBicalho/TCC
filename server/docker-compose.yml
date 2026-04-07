@@ -6,19 +6,13 @@ services:
     container_name: driving_db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-driving_user}
-      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
-      DB_NAME: ${DB_NAME:-driving_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      POSTGRES_DB: ${DB_NAME:-driving_db}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro   # optional seed/schema
-    ports:
-      - "5432:5432"   # remove or restrict in production
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-driving_user} -d ${DB_NAME:-driving_db}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    # ports:
+    #   - "5432:5432"   # remove or restrict in production
 
   # ── FastAPI server ───────────────────────────────────────────────────────────
   server:
@@ -37,13 +31,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - model_weights:/app/weights        # persistent storage for federated model weights
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
+      - model_weights:/app/weights
 
 volumes:
   postgres_data:
