@@ -97,6 +97,7 @@ def collect_unused_submissions(db: Session, version: int) -> list[ClientSubmissi
 
 
 def insert_client_submission(db: Session, client: Client, payload: SubmitWeightsRequest) -> None:
+    # print(f"payload: {payload}")
     w = payload.weights
     submission = ClientSubmission(
         client_id=client.id,

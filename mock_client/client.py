@@ -469,7 +469,9 @@ def main(
             )
             history_local.append(report_local)
 
+        # print(f"local_params: {local_params}")
         weights_body = weight_payload_from_arrays(local_params, global_params.get("centroids"))
+        # print(f"weights_body: {weights_body}")
         submit_resp = api_submit_weights(session, base_url, client_letter, client_version, weights_body)
         print_http_response(submit_resp)
         try:

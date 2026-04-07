@@ -1,2 +1,2 @@
 round,local_train_accuracy,local_train_mse,local_train_f1_score,local_train_precision,local_train_recall,local_test_accuracy,local_test_mse,local_test_f1_score,local_test_precision,local_test_recall
-1,1.0,0.006542137507642308,1.0,1.0,1.0,1.0,0.006324275962781868,1.0,1.0,1.0
+1,1.0,0.0020734723007823867,1.0,1.0,1.0,1.0,0.0019365738037859142,1.0,1.0,1.0
