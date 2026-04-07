@@ -2,7 +2,7 @@
 python3 client.py --request clients --client D
 
 # POST /weights — dummy weights, response printed
-python3 client.py --request weights --client D --version 0
+python3 client.py --request weights --client D --version 1
 
 # Full train + POST /weights (register + each weights response printed)
 python3 client.py --request weights --train --client D --samples 1600

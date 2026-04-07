@@ -9,6 +9,11 @@ db_host = os.getenv("DB_HOST", "localhost")
 db_port = os.getenv("DB_PORT", "5432")
 db_name = os.getenv("DB_NAME")
 
+if os.getenv("ENVIRONMENT") == "production":
+    DATABASE_URL = os.getenv("DATABASE_URL")
+else:
+    DATABASE_URL = f"postgresql://postgres:{db_password}@{db_host}:{db_port}/{db_name}"
+
 min_clients_ratio_for_aggregation = float(
     os.getenv("MIN_CLIENTS_RATIO_FOR_AGGREGATION", "0.75")
 )
@@ -24,7 +29,6 @@ max_submissions_per_client_per_version = int(
 if not db_password or not db_name:
     raise ValueError("DB_PASSWORD e DB_NAME devem estar definidos no .env")
 
-
 @dataclass(frozen=True)
 class Settings:
     database_url: str
@@ -33,10 +37,7 @@ class Settings:
     max_submissions_per_client_per_version: int
     
 settings = Settings(
-    database_url=(
-        f"postgresql://postgres:{db_password}"
-        f"@{db_host}:{db_port}/{db_name}"
-    ),
+    database_url= DATABASE_URL,
     min_clients_ratio_for_aggregation=min_clients_ratio_for_aggregation,
     min_submission_lead=min_submission_lead,
     max_submissions_per_client_per_version=max_submissions_per_client_per_version,
