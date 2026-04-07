@@ -37,4 +37,4 @@ USER appuser
 EXPOSE 8000
 
 # Uvicorn with 4 workers; override via environment if needed
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]

@@ -1,6 +1,9 @@
 # POST /clients — response printed
 python3 client.py --request clients --client D
 
+python3 client.py --base-url http://76.13.171.142:8000 --request clients --client D
+
+
 # POST /weights — dummy weights, response printed
 python3 client.py --request weights --client D --version 1
 
