@@ -1,0 +1,7 @@
+● elm-start.service - ELM Data Collector
+     Loaded: loaded (]8;;file://lab/etc/systemd/system/elm-start.service\/etc/systemd/system/elm-start.service]8;;\; [0;1;32menabled[0m; preset: [0;1;32menabled[0m)
+     Active: activating (auto-restart) (Result: exit-code) since Mon 2026-01-19 16:47:16 -03; 1s ago
+ Invocation: 1d00cc61b2f445018b6e5677716b4f7e
+    Process: 2529 ExecStart=/home/lab/Desktop/ELM327/start-elm.sh [0;1;31m(code=exited, status=203/EXEC)[0m
+   Main PID: 2529 (code=exited, status=203/EXEC)
+        CPU: 49ms
