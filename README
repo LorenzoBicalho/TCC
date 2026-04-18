@@ -1,3 +1,5 @@
+http://76.13.171.142:8000
+
 # POST /clients — response printed
 python3 client.py --request clients --client D
 
@@ -9,3 +11,17 @@ python3 client.py --request weights --client D --version 1
 
 # Full train + POST /weights (register + each weights response printed)
 python3 client.py --request weights --train --client D --samples 1600
+
+Fazer conexão raspbery e servidor.
+
+Fazer lógica de ligação e desligamento do raspbery.
+
+Verificar como salvar dados coletados.
+
+Fazer coletas.
+
+Fazer desenho do compartimento 3d.
+
+Escrever metodologia.
+
+rasbery: 192.168.0.26

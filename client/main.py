@@ -142,7 +142,6 @@ def read_thread(serial, client):
 
         publish(client, payload)
 
-        # data_queue.put((time.time(), value))
         time.sleep(4)
 
 if __name__ == "__main__":
