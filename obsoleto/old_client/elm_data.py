@@ -152,7 +152,6 @@ def read_thread(serial, client):
         # data_queue.put((time.time(), value))
         time.sleep(4)
 
-
 if __name__ == "__main__":
     try:
         print(f"Conectando à porta {PORTA_SERIAL}...")
@@ -222,3 +221,4 @@ if __name__ == "__main__":
             read_acc_thread.join()
         if send_thread:
             send_thread.join()
+

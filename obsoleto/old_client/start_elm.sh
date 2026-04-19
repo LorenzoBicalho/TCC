@@ -8,9 +8,7 @@ echo "[$(date)] Iniciando coleta ELM"
 
 cd /home/lab/Desktop/ELM327 || exit 1
 
-#sleep 5
-
-for i in {5..1}; do
+for i in {25..1}; do
     echo "Aguardando $i..."
     sleep 1
 done

@@ -12,6 +12,7 @@ python3 client.py --request weights --client D --version 1
 # Full train + POST /weights (register + each weights response printed)
 python3 client.py --request weights --train --client D --samples 1600
 
+
 Fazer conexão raspbery e servidor.
 
 Fazer lógica de ligação e desligamento do raspbery.
@@ -24,4 +25,4 @@ Fazer desenho do compartimento 3d.
 
 Escrever metodologia.
 
-rasbery: 192.168.0.26
+raspbery: 192.168.0.26
