@@ -1,133 +1,149 @@
 import serial
-import time
 import threading
-import json
-from client.api.routes import register_client, get_latest_model
-from client.db.index import insert_data
-from client.services.uart import uart_service
 import paho.mqtt.client as mqtt
-from decoders import pid_decoders
-from mqtt_client import init_client, publish
+import requests
+import time
+
 from config import SERIAL_NUMBER, SERIAL_PORT, SERVER_URL
-import accelerometer
-from mqtt_client import publish
+from db.repositories import featuresRepository
+from utils import utils
+from utils import hardware
+import services.decoders as decoders_service
+import api.routes as api_routes
+from services import neurofuzzy as neurofuzzy_service
+import services.accelerometer as accelerometer_service
+import services.elm as elm_service
+import api.mqtt as mqtt_client
+from db.repositories import modelRepository
 
 
-# [OBD2] --> [Modulo USB] ---> [Processamento (Python)] -- publish ---> [Broker MQTT] ---> [Logger] e [Frontend]
-
-# Set COM port for bluetooth conection with ELM327
-PORTA_SERIAL = SERIAL_PORT 
-# Set update rate of ELM327
+PORTA_SERIAL = SERIAL_PORT
 BAUDRATE = 38400
+
 supported_pids = []
 
 stop_thread = threading.Event()
+
 
 class State:
     def __init__(self):
         self.lock = threading.Lock()
         self.features = {}
 
+
 state = State()
 
+def train_thread(stop_event, device_id):
+    while not stop_event.is_set():
+        try:
+            if featuresRepository.get_data_count() >= 1600:
+                if hardware.check_internet_connection():
+                    local_model, metrics, num_samples = neurofuzzy_service.train_model()
+                    try:
+                        response = api_routes.send_local_weights(device_id, local_model, metrics, num_samples)
+                        if response.status_code == 200:
+                            print("Local model sent successfully")
+                            featuresRepository.delete_all_data()
+                    except Exception:
+                        print("Send failed, keeping local data")
+                        pass
+            time.sleep(60)
+        except Exception:
+            time.sleep(60)
+
 if __name__ == "__main__":
+
+    read_elm_thread = None
+    read_acc_thread = None
+    send_thread = None
+    train_thread_handle = None
+
     try:
-        print(f"Verificando conexão com servidor {SERVER_URL}...")
 
         if SERIAL_NUMBER in ["UNKNOWN", "ERROR"]:
             raise RuntimeError("Device ID not available")
 
         device_id = SERIAL_NUMBER.lower()
 
-        client = register_client(device_id)
-
-        model_version = '' # TO-DO: GET FROM LOCAL MODEL
-
-        latest_model = get_latest_model(client.device_identifier, model_version)
-
-        update_fpga_model = uart_service.send_global_weiths("/dev/ttyS0", 115200, latest_model)
-        
-        if latest_model.has_update == true:
-            # atualiza global weights do bd
-        
-        # começa o ciclo. leitura de dados, inferencia, salva no bd dados (sem inferencia). Se der 1600, roda treinamento. envia para servidor 
+        print(f"Verificando conexão com servidor {SERVER_URL}...")
+        if hardware.check_internet_connection():
+            client_info = api_routes.register_client(device_id)
+            model = modelRepository.get_global_model()
+            model_version = model.version if model is not None else 0
+            
+            latest_model = api_routes.get_latest_model(client_info.device_identifier, model_version)
        
+            if latest_model.has_update == 1:
+                modelRepository.delete_all_models()
+                modelRepository.insert_global_model(latest_model.model)
+        else:
+            hardware.require_internet_buzz()
+            latest_model = modelRepository.get_global_model()
+            if latest_model is None:
+                raise RuntimeError("No model available in offline mode")
+
         print(f"Conectando à porta {PORTA_SERIAL}...")
 
-        # TO-DO create thread to read obd data, store and classificate
-        with serial.Serial(PORTA_SERIAL, BAUDRATE, timeout=1) as serial:
-            init_elm(serial)
-            print("Conectado. Lendo PIDs disponíveis...\n")
-            get_all_supported_pids(serial)
-            print(f"Supported PIDs in mode 01: {[pid for pid in supported_pids]}")
-            print("=" * 40)
+        with serial.Serial(PORTA_SERIAL, BAUDRATE, timeout=1) as serial_conn:
 
-            read_elm_thread = None
-            read_acc_thread = None
-            send_thread = None
+            train_thread_handle = threading.Thread(
+                name="train_model",
+                target=train_thread,
+                args=(stop_thread, device_id),
+                daemon=True
+            )
+            train_thread_handle.start()
 
-            try:
-                # Initialize MQTT client and keep on first thread
-                client = mqtt.Client()
-                init_client(client)
+            elm_service.init_elm(serial_conn)
 
-                # Set read on second thread
-                read_elm_thread = threading.Thread(
-                        name="read_elm",
-                        target=read_thread,
-                        args=(serial, client),
-                        daemon=True
-                )
-                read_elm_thread.start()
+            print("Conectado. Lendo PIDs disponíveis...")
 
-                read_acc_thread = threading.Thread(
-                        name="read_accelerometer",
-                        target=accelerometer.accelerometer_thread,
-                        args=(stop_thread, state),
-                        daemon=True
-                )
-                read_acc_thread.start()
+            elm_service.get_all_supported_pids(serial_conn)
 
-                data = format_data(state)
-                print(data)
+            print(f"Supported PIDs in mode 01: {supported_pids}")
 
-                # TO-DO: thread para salvar os dados
-                if data['speed'] not 0:
-                    insert_data(data)
-                    publish(client, data)
+            client = mqtt.Client()
 
-                    # thread para fazer inferencia
-                    classificate(data)
+            mqtt_client.init_client(client)
 
-            # Stops threads
-            except KeyboardInterrupt:
-                print("\nExiting...")
-                stop_thread.set()
-                if read_elm_thread:
-                    read_elm_thread.join()
-                if read_acc_thread:
-                    read_acc_thread.join()
-                if send_thread:
-                    send_thread.join()
+            read_elm_thread = threading.Thread(
+                name="read_elm",
+                target=elm_service.read_thread,
+                args=(stop_thread, serial_conn, client),
+                daemon=True,
+            )
+            read_elm_thread.start()
 
-        # if obd2_data table >= 1600:
-        # TO-DO create thread to train new local model
-        #     train_model()
-        #     send_local_weights()
-        #     delete data from obd2_data table
+            read_acc_thread = threading.Thread(
+                name="read_accelerometer",
+                target=accelerometer_service.accelerometer_thread,
+                args=(stop_thread, state),
+                daemon=True,
+            )
+            read_acc_thread.start()
 
+            while not stop_thread.is_set():
+                data = utils.format_data(state)
+                if data.get("speed", 0) != 0:
+                    classification = neurofuzzy_service.calys(data, latest_model)
+                    driver_class = max(1, min(3, round(classification)))
+
+                    if driver_class == 3: hardware.aggressive_buzz()
+
+                    featuresRepository.insert_data(data)
+
+                    mqtt_client.publish(
+                        client,
+                        data,
+                        classification,
+                        latest_model.version,
+                    )
 
     except serial.SerialException as e:
         print(f"Erro na conexão serial: {e}")
     except KeyboardInterrupt:
-        print("\nPrograma interrompido pelo usuário.")
+        print("Programa interrompido pelo usuário.")
         stop_thread.set()
-        if read_elm_thread:
-            read_elm_thread.join()
-        if read_acc_thread:
-            read_acc_thread.join()
-        if send_thread:
-            send_thread.join()
     except RuntimeError as e:
         print(e)
     except requests.exceptions.Timeout:
@@ -136,3 +152,14 @@ if __name__ == "__main__":
         print("Sem conexão")
     except requests.exceptions.HTTPError as e:
         print("Erro HTTP:", e)
+
+    finally:
+        stop_thread.set()
+        if read_elm_thread:
+            read_elm_thread.join()
+        if read_acc_thread:
+            read_acc_thread.join()
+        if send_thread:
+            send_thread.join()
+        if train_thread_handle:
+            train_thread_handle.join()

@@ -4,8 +4,8 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from db.config import settings
-from db.models import Client, ClientSubmission, FederationRound, GlobalModelVersion, RoundClientAggregate
-from db.schemas import SubmitWeightsRequest, WeightPayload
+from db.schemas import Client, ClientSubmission, FederationRound, GlobalModelVersion, RoundClientAggregate
+from db.validators import SubmitWeightsRequest, WeightPayload
 from utils import average_vectors
 
 WEIGHT_FIELDS = (

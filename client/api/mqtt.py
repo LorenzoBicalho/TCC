@@ -2,7 +2,6 @@ from config import MQTT_BROKER, MQTT_PORT, MQTT_TOPIC
 
 def publish(client, message):
     client.publish(MQTT_TOPIC, message)
-
 def on_connect(client, userdata, flags, rc):
     print(f"Connected sucessfully with code {rc}")
 def on_connect_fail(client, userdata, rc):

@@ -1,3 +1,3 @@
-from db.models import Base
+from db.schemas import Base
 
 __all__ = ["Base"]

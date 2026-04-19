@@ -1,4 +1,3 @@
-import requests
 
 def rpm_decoder(bytes):
     A = int(bytes[:2], 16)

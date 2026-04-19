@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 
 from db.config import settings
-from db.schemas import (
+from db.validators import (
     LatestModelResponse,
     SubmitWeightsRequest,
     SubmitWeightsResponse,

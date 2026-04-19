@@ -15,7 +15,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def ensure_schema() -> None:
     """Create tables if missing. Serialized via PG advisory lock so parallel workers do not race on DDL."""
-    from db.models import Base
+    from db.schemas import Base
 
     with engine.connect() as conn:
         conn.execute(

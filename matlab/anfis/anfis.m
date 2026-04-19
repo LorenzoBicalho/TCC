@@ -3,22 +3,34 @@ clear
 clc
 
 %% Parâmetros do modelo
-num_rules = 10;           % Número de regras fuzzy
+num_rules = 5;           % Número de regras fuzzy
 max_epochs = 100;        % Número máximo de épocas
-alpha = 0.01;             % Taxa de aprendizado
+alpha = 0.001;             % Taxa de aprendizado
 
 %% Carregar dados
-planilha = '../Label/clustered_data.csv';
+planilha = '../Label/analyzed_data_vinicius.csv';
 data = readtable(planilha);
 
 % Separar entradas (X) e saídas (y)
-inputs = [data.fuel_consumption, data.speed, data.acc_norm,...
-          data.throttle_position, data.engine_speed, data.deflection];
+inputs = [data.speed, data.acc_norm, data.engine_speed, ...
+          data.throttle_position, data.delta_acc_lat];
 outputs = data.cluster_id;
 
 % Normalizar entradas (Min-Max)
-min_inputs = min(inputs);
-max_inputs = max(inputs);
+
+max_speed = 120;
+min_speed = 0;
+max_acc_norm = 5;
+min_acc_norm = 0;
+max_engine_speed = 10000;
+min_engine_speed = 0;
+max_throttle_position = 100;
+min_throttle_position = 0;
+max_delta_acc_lat = 3;
+min_delta_acc_lat = 0;
+
+max_inputs = [max_speed, max_acc_norm, max_engine_speed, max_throttle_position, max_delta_acc_lat];
+min_inputs = [min_speed, min_acc_norm, min_engine_speed, min_throttle_position, min_delta_acc_lat];
 normalized_inputs = (inputs - min_inputs) ./ (max_inputs - min_inputs);
 
 %% Dividir dados de forma estratificada (considerando desequilíbrio entre classes)
@@ -43,11 +55,6 @@ s = zeros(num_features, num_rules);
 p = zeros(num_features, num_rules);
 q = zeros(1, num_rules);
 
-melhores_c = c;
-melhores_s = s;
-melhores_p = p;
-melhores_q = q;
-
 for j = 1:num_rules
     for i = 1:num_features
         c(i, j) = xmin(i) + (xmax(i) - xmin(i)) * rand;
@@ -57,7 +64,7 @@ for j = 1:num_rules
     q(j) = rand;
 end
 
-%% Treinamento
+% %% Treinamento
 melhor_mse = inf; % Inicializa com infinito
 mse_epoch = zeros(1, max_epochs);
 for epoch = 1:max_epochs
@@ -65,15 +72,15 @@ for epoch = 1:max_epochs
     for k = 1:num_samples
         x = X_train(k, :);
         target = y_train(k);
-        
+
         [ys, w, y, b] = calys(x, num_features, num_rules, c, s, p, q);
         error = ys - target;
         total_error = total_error + error^2;
-        
+
         for j = 1:num_rules
             dys_dw = (y(j) - ys) / (b + eps);
             dys_dy = w(j) / (b + eps);
-            
+
             for i = 1:num_features
                 dw_dc = w(j) * (x(i) - c(i, j)) / (s(i, j)^2);
                 dw_ds = w(j) * (x(i) - c(i, j))^2 / (s(i, j)^3);
@@ -87,6 +94,8 @@ for epoch = 1:max_epochs
         end
     end
     mse_epoch(epoch) = total_error / num_samples;
+    % fprintf('Erro Percentual Médio: %.2f%%\n', mse_epoch(epoch)*100);
+
 end
 
 %% Avaliação no conjunto de validação
@@ -125,6 +134,11 @@ grid on;
 fprintf('Acurácia no conjunto de validação: %.2f%%\n', accuracy);
 fprintf('Erro Percentual Médio: %.2f%%\n', error_percent);
 
+writematrix(c, 'c.csv');
+writematrix(s, 's.csv');
+writematrix(p, 'p.csv');
+writematrix(q, 'q.csv'); 
+
 %% Função auxiliar
 function [ys, w, y, b] = calys(x, n, m, c, s, p, q)
     a = 0; b = 0;
@@ -143,29 +157,3 @@ function [ys, w, y, b] = calys(x, n, m, c, s, p, q)
     end
     ys = a / (b + eps);
 end
-
-% Salva todas as variáveis no formato binário do MATLAB
-save('parametros_treino.mat', 'melhores_c', 'melhores_s', 'melhores_p', 'melhores_q');
-
-writematrix(melhores_c, 'melhores_c.csv');
-writematrix(melhores_s, 'melhores_s.csv');
-writematrix(melhores_p, 'melhores_p.csv');
-writematrix(melhores_q, 'melhores_q.csv');  % mesmo que seja vetor
-
-fileID = fopen('parametros.txt','w');
-
-fprintf(fileID, '--- c ---\n');
-fprintf(fileID, [repmat('%.6f\t', 1, size(melhores_c, 1)) '\n'], melhores_c');
-
-fprintf(fileID, '\n--- s ---\n');
-fprintf(fileID, [repmat('%.6f\t', 1, size(melhores_s, 1)) '\n'], melhores_s');
-
-fprintf(fileID, '\n--- p ---\n');
-fprintf(fileID, [repmat('%.6f\t', 1, size(melhores_p, 1)) '\n'], melhores_p');
-
-fprintf(fileID, '\n--- q ---\n');
-fprintf(fileID, '%.6f\t', melhores_q);
-fprintf(fileID, '\n');
-
-fclose(fileID);
-

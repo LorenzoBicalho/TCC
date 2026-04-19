@@ -1,72 +1,110 @@
+import uuid
 from datetime import datetime
-from typing import Self
-from uuid import UUID
-import os
 
-from dotenv import load_dotenv
-from pydantic import BaseModel, Field, model_validator
-
-load_dotenv()
-
-NUM_FEATURES = int(os.getenv("NUM_FEATURES", "5"))
-NUM_RULES = int(os.getenv("NUM_RULES", "5"))
-LENGTH_CENTROIDS = int(os.getenv("LENGTH_CENTROIDS", "5"))
-
-
-class WeightPayload(BaseModel):
-    c: list[list[float]]
-    p: list[list[float]]
-    s: list[list[float]]
-    q: list[float]
-    cluster_aggressive: list[float]
-    cluster_normal: list[float]
-    cluster_calm: list[float]
-
-    @model_validator(mode="after")
-    def _check_shapes(self) -> Self:
-        for name in ("c", "p", "s"):
-            m = getattr(self, name)
-            if len(m) != NUM_FEATURES:
-                raise ValueError(f"{name} must have {NUM_FEATURES} rows (NUM_FEATURES).")
-            for i, row in enumerate(m):
-                if len(row) != NUM_RULES:
-                    raise ValueError(
-                        f"{name} row {i} must have length {NUM_RULES} (NUM_RULES)."
-                    )
-        if len(self.q) != NUM_RULES:
-            raise ValueError(f"q must have length {NUM_RULES} (NUM_RULES).")
-        for name in ("cluster_aggressive", "cluster_normal", "cluster_calm"):
-            v = getattr(self, name)
-            if len(v) != LENGTH_CENTROIDS:
-                raise ValueError(
-                    f"{name} must have length {LENGTH_CENTROIDS} (LENGTH_CENTROIDS)."
-                )
-        return self
-
-class LatestModelRequest(BaseModel):
-    device_identifier: str = Field(min_length=1, max_length=255)
-    client_version: int = Field(ge=0)
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Integer,
+    Null,
+    String,
+    Float,
+    null,
+)
+from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.types import JSON
 
 
-class LatestModelResponse(BaseModel):
-    has_update: bool
-    current_version: int
-    model: WeightPayload | None = None
+class Base(DeclarativeBase):
+    pass
 
+class WeightsMixin:
 
-class SubmitWeightsRequest(BaseModel):
-    device_identifier: str = Field(min_length=1, max_length=255)
-    version: int = Field(ge=0)
-    weights: WeightPayload
+    c = Column(JSON, nullable=False)  # [[...], [...]]
+    p = Column(JSON, nullable=False)
+    s = Column(JSON, nullable=False)
 
-class SubmitWeightsResponse(BaseModel):
-    status: str
-    detail: str
-    current_version: int
-    latest_model: WeightPayload | None = None
-    aggregation_triggered: bool = False
+    q = Column(JSON, nullable=False)  # [...]
 
-class AggregateResponse(BaseModel):
-    status: str
-    detail: str
-    new_version: int | None = None
+    cluster_aggressive = Column(JSON, nullable=False)
+    cluster_normal = Column(JSON, nullable=False)
+    cluster_calm = Column(JSON, nullable=False)
+
+class GlobalModel(WeightsMixin, Base):
+
+    __tablename__ = "global_model_table"
+
+    id = Column(
+        String,
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
+    version = Column(
+        Integer,
+        nullable=False,
+        unique=True,
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+    )
+
+    def __repr__(self):
+        return f"<GlobalModel version={self.version}>"
+
+# class LocalModel(WeightsMixin, Base):
+
+#     __tablename__ = "local_model_table"
+
+#     id = Column(
+#         String,
+#         primary_key=True,
+#         default=lambda: str(uuid.uuid4()),
+#     )
+
+#     version = Column(
+#         Integer,
+#         nullable=False,
+#         unique=True,
+#     )
+
+#     created_at = Column(
+#         DateTime,
+#         nullable=False,
+#         default=datetime.utcnow,
+#     )
+
+#     submitted_at = Column(
+#         DateTime,
+#         nullable=True,
+#         default=null,
+#     )
+
+#     def __repr__(self):
+
+#         return f"<LocalModel version={self.version}>"
+
+class Features(Base):
+
+    __tablename__ = "features_table"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        autoincrement=True,
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+    )
+    speed = Column(Float, nullable=True)
+    acc_long = Column(Float, nullable=True)
+    acc_lat = Column(Float, nullable=True)
+    engine_speed = Column(Float, nullable=True)
+    throttle_position = Column(Float, nullable=True)
+
+    def __repr__(self):
+
+        return f"<OBD2Data id={self.id}>"

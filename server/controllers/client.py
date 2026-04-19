@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from db.models import Client
+from db.schemas import Client
 from services import client_service
 
 

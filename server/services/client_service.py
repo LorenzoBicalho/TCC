@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.models import Client
+from db.schemas import Client
 
 
 def get_by_device_identifier(db: Session, device_identifier: str) -> Client | None:

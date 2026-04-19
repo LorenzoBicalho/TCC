@@ -26,12 +26,13 @@ def get_latest_model(device_id, model_version):
     print(response)
     return response
 
-def send_local_weights(device_id, model_version, weights):
+def send_local_weights(device_id, model_version, weights, num_samples):
 
     data = {
         "device_identifier": device_id,
         "version": model_version,
-        "weights": weights
+        "weights": weights,
+        "num_samples": num_samples
     }
 
     response = post("/weights", data)

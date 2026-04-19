@@ -1,90 +1,115 @@
+import uuid
 from datetime import datetime
-from typing import Self
-from uuid import UUID
-import os
 
-from dotenv import load_dotenv
-from pydantic import BaseModel, Field, model_validator
-
-load_dotenv()
-
-NUM_FEATURES = int(os.getenv("NUM_FEATURES", "5"))
-NUM_RULES = int(os.getenv("NUM_RULES", "5"))
-LENGTH_CENTROIDS = int(os.getenv("LENGTH_CENTROIDS", "5"))
-
-
-class WeightPayload(BaseModel):
-    c: list[list[float]]
-    p: list[list[float]]
-    s: list[list[float]]
-    q: list[float]
-    cluster_aggressive: list[float]
-    cluster_normal: list[float]
-    cluster_calm: list[float]
-
-    @model_validator(mode="after")
-    def _check_shapes(self) -> Self:
-        for name in ("c", "p", "s"):
-            m = getattr(self, name)
-            if len(m) != NUM_FEATURES:
-                raise ValueError(f"{name} must have {NUM_FEATURES} rows (NUM_FEATURES).")
-            for i, row in enumerate(m):
-                if len(row) != NUM_RULES:
-                    raise ValueError(
-                        f"{name} row {i} must have length {NUM_RULES} (NUM_RULES)."
-                    )
-        if len(self.q) != NUM_RULES:
-            raise ValueError(f"q must have length {NUM_RULES} (NUM_RULES).")
-        for name in ("cluster_aggressive", "cluster_normal", "cluster_calm"):
-            v = getattr(self, name)
-            if len(v) != LENGTH_CENTROIDS:
-                raise ValueError(
-                    f"{name} must have length {LENGTH_CENTROIDS} (LENGTH_CENTROIDS)."
-                )
-        return self
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    Float
+)
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from sqlalchemy.orm import DeclarativeBase, relationship
+from sqlalchemy.types import Float
 
 
-class ClientRegisterRequest(BaseModel):
-    device_identifier: str = Field(min_length=1, max_length=255)
-    description: str | None = None
+class Base(DeclarativeBase):
+    pass
+class WeightsMixin:
+    c = Column(ARRAY(Float, dimensions=2), nullable=False)     # [5][5]
+    p = Column(ARRAY(Float, dimensions=2), nullable=False)     # [5][5]
+    s = Column(ARRAY(Float, dimensions=2), nullable=False)     # [5][5]
+    q = Column(ARRAY(Float), nullable=False)                   # [5]
+    accuracy = Column(Float, nullabe=True)
+    mean_percentage_error = Column(Float, nullabe=True)
+    cluster_aggressive = Column(ARRAY(Float), nullable=False)  # [5]
+    cluster_normal     = Column(ARRAY(Float), nullable=False)  # [5]
+    cluster_calm       = Column(ARRAY(Float), nullable=False)  # [5]
+
+# Tables
+class Client(Base):
+    __tablename__ = "clients"
+
+    id                = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    device_identifier = Column(String(255), nullable=False, unique=True)  # e.g. MAC address or serial
+    description       = Column(Text, nullable=True)
+    registered_at     = Column(DateTime, nullable=False, default=datetime.utcnow)
+    is_active         = Column(Boolean, nullable=False, default=True)
+
+    submissions = relationship("ClientSubmission", back_populates="client")
+    aggregates  = relationship("RoundClientAggregate", back_populates="client")
+
+    def __repr__(self):
+        return f"<Client id={self.id} device={self.device_identifier}>"
 
 
-class ClientResponse(BaseModel):
-    id: UUID
-    device_identifier: str
-    description: str | None
-    registered_at: datetime
-    is_active: bool
+class FederationRound(Base):
+    __tablename__ = "federation_rounds"
 
-    model_config = {"from_attributes": True}
+    id           = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    round_number = Column(Integer, nullable=False, unique=True)
+    status       = Column(String(50), nullable=False, default="pending")  # pending | in_progress | completed
+    started_at   = Column(DateTime, nullable=True)
+    finished_at  = Column(DateTime, nullable=True)
 
+    submissions  = relationship("ClientSubmission", back_populates="round")
+    aggregates   = relationship("RoundClientAggregate", back_populates="round")
+    global_model = relationship("GlobalModelVersion", back_populates="round", uselist=False)
 
-class LatestModelRequest(BaseModel):
-    device_identifier: str = Field(min_length=1, max_length=255)
-    client_version: int = Field(ge=0)
-
-
-class LatestModelResponse(BaseModel):
-    has_update: bool
-    current_version: int
-    model: WeightPayload | None = None
+    def __repr__(self):
+        return f"<FederationRound round={self.round_number} status={self.status}>"
 
 
-class SubmitWeightsRequest(BaseModel):
-    device_identifier: str = Field(min_length=1, max_length=255)
-    version: int = Field(ge=0)
-    weights: WeightPayload
+class ClientSubmission(WeightsMixin, Base):
+    __tablename__ = "client_submissions"
+
+    id        = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    client_id = Column(UUID(as_uuid=True), ForeignKey("clients.id"), nullable=False)
+    round_id  = Column(UUID(as_uuid=True), ForeignKey("federation_rounds.id"), nullable=True)
+    version   = Column(Integer, nullable=False)  # model version the client was running
+    num_samples = Column(Integer, nullable=False)
+
+    submitted_at        = Column(DateTime, nullable=False, default=datetime.utcnow)
+    used_in_aggregation = Column(Boolean, nullable=False, default=False)
+
+    client = relationship("Client", back_populates="submissions")
+    round  = relationship("FederationRound", back_populates="submissions")
+
+    def __repr__(self):
+        return f"<ClientSubmission id={self.id} client={self.client_id} version={self.version}>"
 
 
-class SubmitWeightsResponse(BaseModel):
-    status: str
-    detail: str
-    current_version: int
-    latest_model: WeightPayload | None = None
-    aggregation_triggered: bool = False
+class RoundClientAggregate(WeightsMixin, Base):
+    __tablename__ = "round_client_aggregates"
+
+    id        = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    round_id  = Column(UUID(as_uuid=True), ForeignKey("federation_rounds.id"), nullable=False)
+    client_id = Column(UUID(as_uuid=True), ForeignKey("clients.id"), nullable=False)
+    version   = Column(Integer, nullable=False)  # version produced after this aggregation
+
+    computed_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    round  = relationship("FederationRound", back_populates="aggregates")
+    client = relationship("Client", back_populates="aggregates")
+
+    def __repr__(self):
+        return f"<RoundClientAggregate round={self.round_id} client={self.client_id}>"
 
 
-class AggregateResponse(BaseModel):
-    status: str
-    detail: str
-    new_version: int | None = None
+class GlobalModelVersion(WeightsMixin, Base):
+    __tablename__ = "global_model_versions"
+
+    id       = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    round_id = Column(UUID(as_uuid=True), ForeignKey("federation_rounds.id"), nullable=False, unique=True)
+    version  = Column(Integer, nullable=False, unique=True)
+
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    is_current = Column(Boolean, nullable=False, default=False)  # only one row True at a time
+
+    round = relationship("FederationRound", back_populates="global_model")
+
+    def __repr__(self):
+        return f"<GlobalModelVersion version={self.version} is_current={self.is_current}>"

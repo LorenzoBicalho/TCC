@@ -9,7 +9,7 @@ from controllers.federated import (
     submit_client_weights,
 )
 from controllers.client import register_client
-from db.schemas import (
+from db.validators import (
     AggregateResponse,
     ClientRegisterRequest,
     ClientResponse,
