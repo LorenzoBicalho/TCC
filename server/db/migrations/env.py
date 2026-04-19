@@ -8,8 +8,10 @@ from dataclasses import dataclass
 
 import sys
 import os
+from pathlib import Path
 
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+BASE_DIR = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(BASE_DIR))
 
 from config import DATABASE_URL
 from database import Base
