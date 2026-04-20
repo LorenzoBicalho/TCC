@@ -10,7 +10,7 @@ db_port = os.getenv("DB_PORT", "5432")
 db_name = os.getenv("DB_NAME")
 db_user = os.getenv("POSTGRES_USER", "postgres")
 
-DATABASE_URL = (f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}")
+DATABASE_URL = os.environ["DATABASE_URL"]
 
 min_clients_ratio_for_aggregation = float(
     os.getenv("MIN_CLIENTS_RATIO_FOR_AGGREGATION", "0.75")
