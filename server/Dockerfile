@@ -13,7 +13,6 @@ COPY requirements.txt .
 RUN pip install --upgrade pip \
     && pip install --no-cache-dir --prefix=/install -r requirements.txt
 
-
 # ── Stage 2: runtime ──────────────────────────────────────────────────────────
 FROM python:3.11-slim
 
@@ -30,11 +29,13 @@ COPY --from=builder /install /usr/local
 # Copy application source
 COPY . .
 
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
+
 # Non-root user for security
 RUN useradd -m appuser && chown -R appuser /app
 USER appuser
 
 EXPOSE 8000
 
-# Uvicorn with 4 workers; override via environment if needed
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+CMD ["./entrypoint.sh"]

@@ -9,12 +9,10 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
-    Float
 )
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import DeclarativeBase, relationship
 from sqlalchemy.types import Float
-
 
 class Base(DeclarativeBase):
     pass
@@ -23,8 +21,8 @@ class WeightsMixin:
     p = Column(ARRAY(Float, dimensions=2), nullable=False)     # [5][5]
     s = Column(ARRAY(Float, dimensions=2), nullable=False)     # [5][5]
     q = Column(ARRAY(Float), nullable=False)                   # [5]
-    accuracy = Column(Float, nullabe=True)
-    mean_percentage_error = Column(Float, nullabe=True)
+    accuracy = Column(Float, nullable=True)
+    mean_percentage_error = Column(Float, nullable=True)
     cluster_aggressive = Column(ARRAY(Float), nullable=False)  # [5]
     cluster_normal     = Column(ARRAY(Float), nullable=False)  # [5]
     cluster_calm       = Column(ARRAY(Float), nullable=False)  # [5]
@@ -70,7 +68,7 @@ class ClientSubmission(WeightsMixin, Base):
     client_id = Column(UUID(as_uuid=True), ForeignKey("clients.id"), nullable=False)
     round_id  = Column(UUID(as_uuid=True), ForeignKey("federation_rounds.id"), nullable=True)
     version   = Column(Integer, nullable=False)  # model version the client was running
-    num_samples = Column(Integer, nullable=False)
+    num_samples = Column(Integer, nullable=True)
 
     submitted_at        = Column(DateTime, nullable=False, default=datetime.utcnow)
     used_in_aggregation = Column(Boolean, nullable=False, default=False)

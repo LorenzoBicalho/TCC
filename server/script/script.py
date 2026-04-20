@@ -182,7 +182,7 @@ def seed_initial_global_model(
 
         model = GlobalModelVersion(
             round_id=bootstrap_round.id,
-            version=0,
+            version=1,
             is_current=True,
 
             c=model_params["c"].tolist(),
@@ -199,7 +199,7 @@ def seed_initial_global_model(
         db.commit()
 
         print(
-            "Initial global model seeded successfully (version=0)."
+            "Initial global model seeded successfully (version=1)."
         )
 
 
