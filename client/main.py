@@ -110,7 +110,7 @@ if __name__ == "__main__":
             read_elm_thread = threading.Thread(
                 name="read_elm",
                 target=elm_service.read_thread,
-                args=(stop_thread, serial_conn, client),
+                args=(stop_thread, serial_conn, state),
                 daemon=True,
             )
             read_elm_thread.start()
