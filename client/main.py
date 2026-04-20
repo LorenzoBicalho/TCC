@@ -71,11 +71,11 @@ if __name__ == "__main__":
             model = modelRepository.get_global_model()
             model_version = model.version if model is not None else 0
             
-            latest_model = api_routes.get_latest_model(client_info.device_identifier, model_version)
+            latest_model = api_routes.get_latest_model(device_id, model_version)
        
-            if latest_model.has_update == 1:
+            if latest_model['has_update'] == 1:
                 modelRepository.delete_all_models()
-                modelRepository.insert_global_model(latest_model.model)
+                modelRepository.insert_global_model(latest_model.get('model'), latest_model.get('current_version'))
         else:
             hardware.require_internet_buzz()
             latest_model = modelRepository.get_global_model()
