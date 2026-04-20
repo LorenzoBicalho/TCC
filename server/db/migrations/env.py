@@ -6,12 +6,12 @@ from sqlalchemy import pool
 from alembic import context
 from dataclasses import dataclass
 
-# import sys
+import sys
 import os
-# from pathlib import Path
+from pathlib import Path
 
-# BASE_DIR = Path(__file__).resolve().parents[2]
-# sys.path.insert(0, str(BASE_DIR))
+BASE_DIR = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(BASE_DIR))
 
 # from config import DATABASE_URL
 from database import Base
