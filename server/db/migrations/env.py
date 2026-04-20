@@ -6,21 +6,22 @@ from sqlalchemy import pool
 from alembic import context
 from dataclasses import dataclass
 
-import sys
+# import sys
 import os
-from pathlib import Path
+# from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(BASE_DIR))
+# BASE_DIR = Path(__file__).resolve().parents[2]
+# sys.path.insert(0, str(BASE_DIR))
 
-from config import DATABASE_URL
+# from config import DATABASE_URL
 from database import Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
 
-config.set_main_option("sqlalchemy.url", DATABASE_URL)
+config.set_main_option("sqlalchemy.url", os.environ["DATABASE_URL"])
+
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
