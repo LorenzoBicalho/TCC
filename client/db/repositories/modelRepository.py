@@ -10,13 +10,13 @@ def insert_global_model(payload: WeightPayload, version: int) -> None:
     with SessionLocal() as db:
         submission = GlobalModel(
             version=version,
-            c=payload.c,
-            p=payload.p,
-            s=payload.s,
-            q=payload.q,
-            cluster_aggressive=payload.cluster_aggressive,
-            cluster_normal=payload.cluster_normal,
-            cluster_calm=payload.cluster_calm,
+            c=payload.get('c'),
+            p=payload.get('p'),
+            s=payload.get('s'),
+            q=payload.get('q'),
+            cluster_aggressive=payload.get('cluster_aggressive'),
+            cluster_normal=payload.get('cluster_normal'),
+            cluster_calm=payload.get('cluster_calm'),
         )
         db.add(submission)
         db.commit()

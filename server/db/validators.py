@@ -1,4 +1,5 @@
 from datetime import datetime
+from types import NoneType
 from typing import Self
 from uuid import UUID
 import os
@@ -18,8 +19,8 @@ class WeightPayload(BaseModel):
     p: list[list[float]]
     s: list[list[float]]
     q: list[float]
-    accuracy: float
-    mean_percentage_error: float
+    accuracy: float | NoneType
+    mean_percentage_error: float | NoneType
     cluster_aggressive: list[float]
     cluster_normal: list[float]
     cluster_calm: list[float]
@@ -63,7 +64,7 @@ class ClientResponse(BaseModel):
 
 class LatestModelRequest(BaseModel):
     device_identifier: str = Field(min_length=1, max_length=255)
-    client_version: int = Field(ge=0)
+    client_version: int
 
 
 class LatestModelResponse(BaseModel):

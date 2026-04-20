@@ -20,6 +20,11 @@ from db.validators import (
 )
 from db.session import ensure_schema, get_db
 
+import logging
+import traceback
+
+logger = logging.getLogger(__name__)
+
 app = FastAPI(title="Federated Learning Server")
 ensure_schema()
 DbDependency = Annotated[Session, Depends(get_db)]
@@ -35,6 +40,7 @@ def latest_model_endpoint(payload: LatestModelRequest, db: DbDependency):
     try:
         return get_latest_global_model(db, payload.device_identifier, payload.client_version)
     except ValueError as exc:
+        logger.error("403 error detail: %s", traceback.format_exc())
         raise HTTPException(status_code=403, detail=str(exc)) from exc
 
 
@@ -43,8 +49,8 @@ def submit_weights_endpoint(payload: SubmitWeightsRequest, db: DbDependency):
     try:
         return submit_client_weights(db, payload)
     except ValueError as exc:
+        logger.error("403 error detail: %s", traceback.format_exc())
         raise HTTPException(status_code=403, detail=str(exc)) from exc
-
 
 @app.post("/federated/aggregate", response_model=AggregateResponse)
 def aggregate_endpoint(db: DbDependency):

@@ -13,6 +13,8 @@ WEIGHT_FIELDS = (
     "p",
     "s",
     "q",
+    "accuracy",
+    "mean_percentage_error",
     "cluster_aggressive",
     "cluster_normal",
     "cluster_calm",

@@ -13,6 +13,7 @@ python3 client.py --request weights --client D --version 1
 python3 client.py --request weights --train --client D --samples 1600
 
 uvicorn main:app --reload
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 Fazer conexão raspbery e servidor.
 
