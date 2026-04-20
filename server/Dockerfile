@@ -29,12 +29,13 @@ COPY --from=builder /install /usr/local
 # Copy application source
 COPY . .
 
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
+
 # Non-root user for security
 RUN useradd -m appuser && chown -R appuser /app
 USER appuser
 
 EXPOSE 8000
 
-COPY entrypoint.sh .
-RUN chmod +x entrypoint.sh
 CMD ["./entrypoint.sh"]
