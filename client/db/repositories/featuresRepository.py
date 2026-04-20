@@ -7,7 +7,6 @@ from db.validators import FeaturePayload
 ensure_schema()
 
 def insert_data(payload: FeaturePayload) -> None:
-
     with SessionLocal() as db:
         record = Features(
             speed=payload.speed,

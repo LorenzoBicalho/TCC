@@ -68,6 +68,7 @@ if __name__ == "__main__":
         print(f"Verificando conexão com servidor {SERVER_URL}...")
         if hardware.check_internet_connection():
             client_info = api_routes.register_client(device_id)
+            device_id = client_info.get('device_identifier')
             model = modelRepository.get_global_model()
             model_version = model.version if model is not None else 0
             
