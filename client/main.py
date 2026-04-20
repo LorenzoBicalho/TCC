@@ -1,4 +1,4 @@
-import serial
+from serial import Serial, SerialException
 import threading
 import paho.mqtt.client as mqtt
 import requests
@@ -85,7 +85,7 @@ if __name__ == "__main__":
 
         print(f"Conectando à porta {PORTA_SERIAL}...")
 
-        with serial.Serial(PORTA_SERIAL, BAUDRATE, timeout=1) as serial_conn:
+        with Serial(PORTA_SERIAL, BAUDRATE, timeout=1) as serial_conn:
 
             train_thread_handle = threading.Thread(
                 name="train_model",
@@ -140,7 +140,7 @@ if __name__ == "__main__":
                         latest_model.version,
                     )
 
-    except serial.SerialException as e:
+    except SerialException as e:
         print(f"Erro na conexão serial: {e}")
     except KeyboardInterrupt:
         print("Programa interrompido pelo usuário.")
