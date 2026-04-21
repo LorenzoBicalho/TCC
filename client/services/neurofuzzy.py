@@ -93,7 +93,7 @@ def get_training_data():
 
     y_class = np.zeros(num_samples)
 
-    current_model = modelRepository.get_params()
+    current_model = modelRepository.get_global_model()
 
     for i in range(num_samples):
         y_raw, *_ = calys(normalized_inputs[i], current_model)
@@ -123,7 +123,7 @@ def get_training_data():
     Y_train = outputs[train_idx]
     Y_val = outputs[val_idx]
 
-    return X_train, X_val, Y_train, Y_val
+    return X_train, X_val, Y_train, Y_val, current_model['version']
 
 
 def evaluate_model(params, X_val, Y_val):
@@ -159,7 +159,7 @@ def train_model(alpha=0.001, max_epochs=10):
     """
     num_rules = config.NUM_RULES
 
-    X_train, X_val, Y_train, Y_val = get_training_data()
+    X_train, X_val, Y_train, Y_val, version = get_training_data()
 
     num_samples, num_features = X_train.shape
 
@@ -215,4 +215,4 @@ def train_model(alpha=0.001, max_epochs=10):
 
     metrics = evaluate_model(trained_params, X_val, Y_val)
 
-    return trained_params, metrics, num_samples
+    return trained_params, metrics, num_samples, version

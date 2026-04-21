@@ -44,8 +44,7 @@ def get_global_model():
             .first()
         )
 
-def get_global_params():
-    model = get_global_model()
+def get_global_params(model):
     if model is None:
         return None
     return {

@@ -51,9 +51,7 @@ def submit_client_weights(db: Session, payload: SubmitWeightsRequest) -> SubmitW
             latest_model=federated_service.model_to_weight_payload(current) if current else None,
         )
 
-    n_existing = federated_service.count_submissions_for_client_version(
-        db, client.id, payload.version
-    )
+    n_existing = federated_service.count_submissions_for_client_version(db, client.id, payload.version)
     if n_existing >= settings.max_submissions_per_client_per_version:
         return SubmitWeightsResponse(
             status="ignored",
@@ -63,17 +61,22 @@ def submit_client_weights(db: Session, payload: SubmitWeightsRequest) -> SubmitW
         )
 
     federated_service.insert_client_submission(db, client, payload)
-    triggered = federated_service.try_run_aggregation_if_ready(db, current_version)
 
-    new_current = federated_service.get_current_global_model(db)
     return SubmitWeightsResponse(
         status="success",
         detail="Submission stored successfully.",
-        current_version=new_current.version if new_current else current_version,
+        current_version=current_version,
         latest_model=None,
-        aggregation_triggered=triggered,
     )
 
+def run_aggregation(db: Session, bypass = False) -> int | None:
+    current_model = federated_service.get_current_global_model(db)
+    current_version = current_model.version if current_model else 1
 
-def run_aggregation(db: Session) -> int | None:
-    return federated_service.run_aggregation(db)
+    if not bypass:
+        aggregation_available = federated_service.check_aggregation_condition(db, current_version)
+        if not aggregation_available:
+            return False
+
+    federated_service.run_aggregation(db, current_model)
+    return True

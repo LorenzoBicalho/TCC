@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 
 from controllers.federated import (
@@ -9,6 +9,9 @@ from controllers.federated import (
     submit_client_weights,
 )
 from controllers.client import register_client
+from controllers.telemetry import submit_client_telemetry
+
+
 from db.validators import (
     AggregateResponse,
     ClientRegisterRequest,
@@ -17,6 +20,7 @@ from db.validators import (
     LatestModelResponse,
     SubmitWeightsRequest,
     SubmitWeightsResponse,
+    TelemetrysRequest
 )
 from db.session import ensure_schema, get_db
 
@@ -45,9 +49,11 @@ def latest_model_endpoint(payload: LatestModelRequest, db: DbDependency):
 
 
 @app.post("/weights", response_model=SubmitWeightsResponse)
-def submit_weights_endpoint(payload: SubmitWeightsRequest, db: DbDependency):
+def submit_weights_endpoint(payload: SubmitWeightsRequest, db: DbDependency, background_tasks: BackgroundTasks):
     try:
+        background_tasks.add_task(run_aggregation, db)
         return submit_client_weights(db, payload)
+
     except ValueError as exc:
         logger.error("403 error detail: %s", traceback.format_exc())
         raise HTTPException(status_code=403, detail=str(exc)) from exc
@@ -62,3 +68,11 @@ def aggregate_endpoint(db: DbDependency):
             new_version=None,
         )
     return AggregateResponse(status="success", detail="Aggregation completed.", new_version=new_version)
+
+@app.post("/telemetry")
+def submit_telemetry_endpoint(payload: TelemetrysRequest, db: DbDependency):
+    try:
+        return submit_client_telemetry(db, payload)
+    except ValueError as exc:
+        logger.error("403 error detail: %s", traceback.format_exc())
+        raise HTTPException(status_code=403, detail=str(exc)) from exc

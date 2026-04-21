@@ -35,9 +35,9 @@ def train_thread(stop_event, device_id):
         try:
             if featuresRepository.get_data_count() >= 1600:
                 if hardware.check_internet_connection():
-                    local_model, metrics, num_samples = neurofuzzy_service.train_model()
+                    trained_params, metrics, num_samples, version = neurofuzzy_service.train_model()
                     try:
-                        response = api_routes.send_local_weights(device_id, local_model, metrics, num_samples)
+                        response = api_routes.send_local_weights(device_id, trained_params, metrics, num_samples, version)
                         if response.status_code == 200:
                             print("Local model sent successfully")
                             featuresRepository.delete_all_data()

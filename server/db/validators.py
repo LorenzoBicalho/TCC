@@ -19,8 +19,6 @@ class WeightPayload(BaseModel):
     p: list[list[float]]
     s: list[list[float]]
     q: list[float]
-    accuracy: float | NoneType
-    mean_percentage_error: float | NoneType
     cluster_aggressive: list[float]
     cluster_normal: list[float]
     cluster_calm: list[float]
@@ -46,11 +44,13 @@ class WeightPayload(BaseModel):
                 )
         return self
 
+class MetricsPayload(BaseModel):
+    accuracy: float | NoneType
+    mean_percentage_error: float | NoneType
 
 class ClientRegisterRequest(BaseModel):
     device_identifier: str = Field(min_length=1, max_length=255)
     description: str | None = None
-
 
 class ClientResponse(BaseModel):
     id: UUID
@@ -72,22 +72,42 @@ class LatestModelResponse(BaseModel):
     current_version: int
     model: WeightPayload | None = None
 
-
 class SubmitWeightsRequest(BaseModel):
     device_identifier: str = Field(min_length=1, max_length=255)
-    version: int = Field(ge=0)
     weights: WeightPayload
-
-
+    metrics: MetricsPayload
+    num_samples: int = Field(ge=0)
+    version: int = Field(ge=0)
 class SubmitWeightsResponse(BaseModel):
     status: str
     detail: str
     current_version: int
     latest_model: WeightPayload | None = None
     aggregation_triggered: bool = False
-
-
 class AggregateResponse(BaseModel):
     status: str
     detail: str
     new_version: int | None = None
+
+class TelemetryRow(BaseModel):
+    """A single OBD2 sample as recorded on the hardware side."""
+    local_id:          int   | None = None
+    created_at:        datetime          
+    speed:             float | None = None
+    acc_long:          float | None = None
+    acc_lat:           float | None = None
+    engine_speed:      float | None = None
+    throttle_position: float | None = None
+    classification:    int               
+ 
+ 
+class TelemetryRequest(BaseModel):
+    """
+    Envelope sent by the hardware.
+    client_id and session_id live here, not in every row.
+    submitted_at is stamped by the server on arrival.
+    """
+    client_id:  UUID
+    session_id: UUID
+    version:    int 
+    telemetry:  list[TelemetryRow]

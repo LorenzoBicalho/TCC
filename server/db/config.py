@@ -24,6 +24,11 @@ max_submissions_per_client_per_version = int(
     os.getenv("MAX_SUBMISSIONS_PER_CLIENT_PER_VERSION", "5")
 )
 
+aggregation_type = str(
+    os.getenv("AGGREGATION_TYPE", "AVG")
+)
+
+
 if not db_password or not db_name:
     raise ValueError("DB_PASSWORD e DB_NAME devem estar definidos no .env")
 
@@ -39,4 +44,5 @@ settings = Settings(
     min_clients_ratio_for_aggregation=min_clients_ratio_for_aggregation,
     min_submission_lead=min_submission_lead,
     max_submissions_per_client_per_version=max_submissions_per_client_per_version,
+    aggregation_type=aggregation_type
 )
