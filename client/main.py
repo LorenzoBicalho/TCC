@@ -31,27 +31,37 @@ state = State()
 def train_thread(stop_event, device_id, session_id):
     while not stop_event.is_set():
         try:
-            if featuresRepository.get_data_count() >= 1600:
+            print("Checking data count")
+            data_count = featuresRepository.get_data_count()
+            if  data_count >= 1600:
                 if hardware.check_internet_connection():
-                    
+                    print(f"Trainini new model with {data_count} samples")
                     trained_params, metrics, num_samples, version = neurofuzzy_service.train_model()
                     rows = featuresRepository.get_data()
 
                     weights_sent = False
                     try:
+                        print(f"Sent weights")
                         response = api_routes.send_local_weights(device_id, trained_params, metrics, num_samples, version)
                         weights_sent = response.status_code == 200
                     except Exception as e:
                         print(f"Weight send failed: {e}")
 
                     if weights_sent:
+                        print(f"Sent weights")
                         try:
+                            print(f"Sending telemetry data to the server")
                             api_routes.send_telemetry(device_id, session_id, version, rows)
                         except Exception as e:
                             print(f"Telemetry send failed, keeping data: {e}")
                             # don't delete — will retry next cycle
                         else:
-                            featuresRepository.delete_all_data()  # only delete if both succeeded
+                            print(f"Telemetry data sent")
+                            print(f"Deleting all local telemetry data")
+                            featuresRepository.delete_all_data()
+                            print(f"Local telemetry data deleted")
+                else:
+                    print("Ready to train new model, but internet connection needed")
 
         except Exception as e:
             print(f"train_thread error: {e}")
@@ -72,8 +82,11 @@ if __name__ == "__main__":
 
         device_id = SERIAL_NUMBER.lower()
 
-        print(f"Verificando conexão com servidor {SERVER_URL}...")
-        if hardware.check_internet_connection():
+        print(f"Verifying server {SERVER_URL} connection...")
+        is_connected = hardware.check_internet_connection()
+        hardware.require_internet_buzz(is_connected)
+        if is_connected:
+            print(f"Connection established")
             client_info = api_routes.register_client(device_id)
             device_id = client_info.get('device_identifier')
             model = modelRepository.get_global_model()
@@ -84,10 +97,12 @@ if __name__ == "__main__":
             current_version = latest_model.get('current_version')
 
             if latest_model['has_update'] == 1:
+                print("Global Model has update")
                 modelRepository.delete_all_models()
                 modelRepository.insert_global_model(params, current_version)
+                print("Local Model updated")
         else:
-            hardware.require_internet_buzz()
+            print(f"No connection established. Initiating offline mode.]")
             params = modelRepository.get_global_model()
             current_version = params['version']
             if params is None:
@@ -133,6 +148,7 @@ if __name__ == "__main__":
 
             while not stop_thread.is_set():
                 data = utils.format_data(state)
+                print(f"Reading complete. Data: {data}")
                 if data.get("speed", 0) != 0:
                     classification = neurofuzzy_service.calys(data, params)
                     driver_class = max(1, min(3, round(classification)))
@@ -140,6 +156,8 @@ if __name__ == "__main__":
                     if driver_class == 3: hardware.aggressive_buzz()
 
                     featuresRepository.insert_data(data)
+                    print(f"Data inserted in local database")
+
 
     except SerialException as e:
         print(f"Erro na conexão serial: {e}")

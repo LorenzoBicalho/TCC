@@ -114,6 +114,7 @@ def read_thread(stop_thread, serial, state) -> None:
     global supported_pids
 
     while not stop_thread.is_set():
+        print(f"Reading OBD2")
         with state.lock:
             state.features["speed"] = read_pid(serial, "010D") if "010D" in supported_pids else 0.0
 

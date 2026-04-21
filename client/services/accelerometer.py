@@ -36,6 +36,7 @@ def accelerometer_thread(stop_thread, state):
             time.sleep(5)
 
         while not stop_thread.is_set():
+            print(f"Reading accelerometer")
             if sensor:
                 accel = sensor.acceleration
                 if accel:

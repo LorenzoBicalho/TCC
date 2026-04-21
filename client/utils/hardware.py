@@ -63,8 +63,8 @@ def aggressive_buzz():
     _buzz(duration=0.15, repeat=3, pause=0.1)
 
 
-def require_internet_buzz():
-    _buzz(duration=0.4, repeat=2, pause=0.2)
+def require_internet_buzz(is_connected = False):
+    if not is_connected: _buzz(duration=0.5, repeat=3, pause=0.5)
 
 
 def check_internet_connection(timeout: float = 2.0) -> bool:
