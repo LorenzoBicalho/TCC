@@ -40,3 +40,17 @@ def send_local_weights(device_id, trained_params, metrics, num_samples, version)
 
     print(response)
     return response
+
+def send_telemetry(device_id, session_id, version, rows):
+
+    data = {
+        "device_identifier": device_id,
+        "session_id": session_id,
+        "version": version,
+        "telemetry": rows
+    }
+
+    response = post("/weights", data)
+
+    print(response)
+    return response

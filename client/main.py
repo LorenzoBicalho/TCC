@@ -2,7 +2,7 @@ from serial import Serial, SerialException
 import threading
 import requests
 import time
-
+import uuid
 from config import SERIAL_NUMBER, SERIAL_PORT, SERVER_URL
 from db.repositories import featuresRepository
 from utils import utils
@@ -20,8 +20,6 @@ BAUDRATE = 38400
 supported_pids = []
 
 stop_thread = threading.Event()
-
-
 class State:
     def __init__(self):
         self.lock = threading.Lock()
@@ -30,23 +28,35 @@ class State:
 
 state = State()
 
-def train_thread(stop_event, device_id):
+def train_thread(stop_event, device_id, session_id):
     while not stop_event.is_set():
         try:
             if featuresRepository.get_data_count() >= 1600:
                 if hardware.check_internet_connection():
+                    
                     trained_params, metrics, num_samples, version = neurofuzzy_service.train_model()
+                    rows = featuresRepository.get_data()
+
+                    weights_sent = False
                     try:
                         response = api_routes.send_local_weights(device_id, trained_params, metrics, num_samples, version)
-                        if response.status_code == 200:
-                            print("Local model sent successfully")
-                            featuresRepository.delete_all_data()
-                    except Exception:
-                        print("Send failed, keeping local data")
-                        pass
-            time.sleep(60)
-        except Exception:
-            time.sleep(60)
+                        weights_sent = response.status_code == 200
+                    except Exception as e:
+                        print(f"Weight send failed: {e}")
+
+                    if weights_sent:
+                        try:
+                            api_routes.send_telemetry(device_id, session_id, version, rows)
+                        except Exception as e:
+                            print(f"Telemetry send failed, keeping data: {e}")
+                            # don't delete — will retry next cycle
+                        else:
+                            featuresRepository.delete_all_data()  # only delete if both succeeded
+
+        except Exception as e:
+            print(f"train_thread error: {e}")
+
+        time.sleep(60)
 
 if __name__ == "__main__":
 
@@ -87,10 +97,12 @@ if __name__ == "__main__":
 
         with Serial(PORTA_SERIAL, BAUDRATE, timeout=1) as serial_conn:
 
+            session_id = str(uuid.uuid4())
+
             train_thread_handle = threading.Thread(
                 name="train_model",
                 target=train_thread,
-                args=(stop_thread, device_id),
+                args=(stop_thread, device_id, session_id),
                 daemon=True
             )
             train_thread_handle.start()

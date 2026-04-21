@@ -107,7 +107,7 @@ class TelemetryRequest(BaseModel):
     client_id and session_id live here, not in every row.
     submitted_at is stamped by the server on arrival.
     """
-    client_id:  UUID
+    device_identifier: str = Field(min_length=1, max_length=255)
     session_id: UUID
     version:    int 
     telemetry:  list[TelemetryRow]

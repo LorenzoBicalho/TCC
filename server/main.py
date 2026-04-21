@@ -20,7 +20,7 @@ from db.validators import (
     LatestModelResponse,
     SubmitWeightsRequest,
     SubmitWeightsResponse,
-    TelemetrysRequest
+    TelemetryRequest
 )
 from db.session import ensure_schema, get_db
 
@@ -70,7 +70,7 @@ def aggregate_endpoint(db: DbDependency):
     return AggregateResponse(status="success", detail="Aggregation completed.", new_version=new_version)
 
 @app.post("/telemetry")
-def submit_telemetry_endpoint(payload: TelemetrysRequest, db: DbDependency):
+def submit_telemetry_endpoint(payload: TelemetryRequest, db: DbDependency):
     try:
         return submit_client_telemetry(db, payload)
     except ValueError as exc:

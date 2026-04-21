@@ -19,9 +19,7 @@ def insert_data(payload: FeaturePayload) -> None:
         db.commit()
 
 def get_data():
-
     with SessionLocal() as db:
-
         return (
             db.query(Features)
             .order_by(Features.id.desc())
