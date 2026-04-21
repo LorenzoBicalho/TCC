@@ -27,13 +27,13 @@ def init():
 def accelerometer_thread(stop_thread, state):
     global i2c, sensor
 
+    state.features["accel_x"] = []
+    state.features["accel_y"] = []
+
     try:
         if not i2c or not sensor:
             init()
             time.sleep(5)
-
-        state.features["accel_x"] = []
-        state.features["accel_y"] = []
 
         while not stop_thread.is_set():
             if sensor:
