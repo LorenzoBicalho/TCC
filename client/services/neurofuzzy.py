@@ -7,11 +7,8 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.model_selection import StratifiedShuffleSplit
 
 from db.repositories import featuresRepository, modelRepository
+from utils.utils import EPSILON
 import config
-
-
-EPSILON = 1e-8
-
 
 def calys(x, params):
     """

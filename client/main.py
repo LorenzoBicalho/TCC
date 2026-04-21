@@ -1,6 +1,5 @@
 from serial import Serial, SerialException
 import threading
-import paho.mqtt.client as mqtt
 import requests
 import time
 
@@ -13,9 +12,7 @@ import api.routes as api_routes
 from services import neurofuzzy as neurofuzzy_service
 import services.accelerometer as accelerometer_service
 import services.elm as elm_service
-import api.mqtt as mqtt_client
 from db.repositories import modelRepository
-
 
 PORTA_SERIAL = SERIAL_PORT
 BAUDRATE = 38400
@@ -73,14 +70,17 @@ if __name__ == "__main__":
             model_version = model.version if model is not None else 0
             
             latest_model = api_routes.get_latest_model(device_id, model_version)
-       
+            params = latest_model.get('model')
+            current_version = latest_model.get('current_version')
+
             if latest_model['has_update'] == 1:
                 modelRepository.delete_all_models()
-                modelRepository.insert_global_model(latest_model.get('model'), latest_model.get('current_version'))
+                modelRepository.insert_global_model(params, current_version)
         else:
             hardware.require_internet_buzz()
-            latest_model = modelRepository.get_global_model()
-            if latest_model is None:
+            params = modelRepository.get_global_model()
+            current_version = params['version']
+            if params is None:
                 raise RuntimeError("No model available in offline mode")
 
         print(f"Conectando à porta {PORTA_SERIAL}...")
@@ -103,10 +103,6 @@ if __name__ == "__main__":
 
             print(f"Supported PIDs in mode 01: {supported_pids}")
 
-            client = mqtt.Client()
-
-            mqtt_client.init_client(client)
-
             read_elm_thread = threading.Thread(
                 name="read_elm",
                 target=elm_service.read_thread,
@@ -126,19 +122,12 @@ if __name__ == "__main__":
             while not stop_thread.is_set():
                 data = utils.format_data(state)
                 if data.get("speed", 0) != 0:
-                    classification = neurofuzzy_service.calys(data, latest_model)
+                    classification = neurofuzzy_service.calys(data, params)
                     driver_class = max(1, min(3, round(classification)))
 
                     if driver_class == 3: hardware.aggressive_buzz()
 
                     featuresRepository.insert_data(data)
-
-                    mqtt_client.publish(
-                        client,
-                        data,
-                        classification,
-                        latest_model.version,
-                    )
 
     except SerialException as e:
         print(f"Erro na conexão serial: {e}")
