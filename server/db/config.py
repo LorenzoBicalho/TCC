@@ -25,7 +25,7 @@ max_submissions_per_client_per_version = int(
 )
 
 aggregation_type = str(
-    os.getenv("AGGREGATION_TYPE", "AVG")
+    os.getenv("AGGREGATION_TYPE", "FedAvg")
 )
 
 
@@ -38,6 +38,7 @@ class Settings:
     min_clients_ratio_for_aggregation: float
     min_submission_lead: int
     max_submissions_per_client_per_version: int
+    aggregation_type: str
     
 settings = Settings(
     database_url= DATABASE_URL,

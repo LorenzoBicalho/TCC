@@ -23,7 +23,6 @@ CENTROID_DEFINITIONS = {
     "calm": np.array([14.0, 3.2, 2000.0, 25.0, 0.6], dtype=np.float64),
 }
 
-
 def _load_from_npz(
     npz_path: str,
     num_features: int,
