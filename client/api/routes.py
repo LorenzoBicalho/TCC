@@ -11,7 +11,7 @@ def register_client(device_id):
 
     response = post("/clients", data)
 
-    print(response)
+    print(response.json())
     return response
 
 def get_latest_model(device_id, model_version):
@@ -23,7 +23,7 @@ def get_latest_model(device_id, model_version):
 
     response = post("/model/latest", data)
 
-    print(response)
+    print(response.json())
     return response
 
 def send_local_weights(device_id, trained_params, metrics, num_samples, version):
@@ -38,7 +38,7 @@ def send_local_weights(device_id, trained_params, metrics, num_samples, version)
 
     response = post("/weights", data)
 
-    print(response)
+    print(response.json())
     return response
 
 def send_telemetry(device_id, version, rows):
@@ -51,5 +51,5 @@ def send_telemetry(device_id, version, rows):
 
     response = post("/weights", data)
 
-    print(response)
+    print(response.json())
     return response

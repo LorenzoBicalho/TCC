@@ -114,10 +114,13 @@ if __name__ == "__main__":
             model_version = model.version if model is not None else 0
 
             latest_model = api_routes.get_latest_model(device_id, model_version)
-            params = latest_model.get('model')
-            current_version = latest_model.get('current_version')
+            latest_model_data = latest_model.json()
 
-            if latest_model.get('has_update') == 1:
+            params = latest_model_data.get('model')
+            current_version = latest_model_data.get('current_version')
+            latest_model_has_update = latest_model_data.get('has_update')
+
+            if  latest_model_has_update == 1:
                 print("Global Model has update")
                 modelRepository.delete_all_models()
                 modelRepository.insert_global_model(params, current_version)

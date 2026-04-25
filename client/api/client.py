@@ -21,4 +21,4 @@ def post(endpoint, data):
 
     response.raise_for_status()
 
-    return response.json()
+    return response
