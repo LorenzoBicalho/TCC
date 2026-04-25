@@ -89,12 +89,22 @@ if __name__ == "__main__":
         if is_connected:
             print(f"Hardware is connected to the internet")
             print(f"Verifying server {SERVER_URL} connection...")
-            client_info = api_routes.register_client(device_id)
-            is_server_on = client_info.status_code == 200
-            if is_server_on:
-                print(f"Connected to server: {SERVER_URL}")
-            else:
-                print(f"Failed trying to connect to server: {SERVER_URL}")
+
+            try:
+                client_info = api_routes.register_client(device_id)
+                is_server_on = client_info.status_code == 200
+
+                if is_server_on:
+                    print(f"Connected to server: {SERVER_URL}")
+                else:
+                    print(f"Failed trying to connect to server: {SERVER_URL}")
+
+            except requests.exceptions.Timeout:
+                print(f"Server {SERVER_URL} timed out. Proceeding in offline mode.")
+            except requests.exceptions.ConnectionError:
+                print(f"Could not reach server {SERVER_URL}. Proceeding in offline mode.")
+            except Exception as e:
+                print(f"Unexpected error contacting server: {e}. Proceeding in offline mode.")
 
         if is_connected and is_server_on:
             response_data = client_info.json()

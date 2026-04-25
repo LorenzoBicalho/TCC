@@ -15,7 +15,8 @@ def post(endpoint, data):
 
     response = requests.post(
         url,
-        json=data
+        json=data,
+        timeout = 10
     )
 
     response.raise_for_status()
