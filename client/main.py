@@ -28,7 +28,7 @@ class State:
 
 state = State()
 
-def train_thread(stop_event, device_id, session_id):
+def train_thread(stop_event, device_id):
     while not stop_event.is_set():
         try:
             print("Checking data count")
@@ -51,7 +51,7 @@ def train_thread(stop_event, device_id, session_id):
                         print(f"Sent weights")
                         try:
                             print(f"Sending telemetry data to the server")
-                            api_routes.send_telemetry(device_id, session_id, version, rows)
+                            api_routes.send_telemetry(device_id, version, rows)
                         except Exception as e:
                             print(f"Telemetry send failed, keeping data: {e}")
                             # don't delete — will retry next cycle
@@ -117,7 +117,7 @@ if __name__ == "__main__":
             train_thread_handle = threading.Thread(
                 name="train_model",
                 target=train_thread,
-                args=(stop_thread, device_id, session_id),
+                args=(stop_thread, device_id),
                 daemon=True
             )
             train_thread_handle.start()
@@ -155,7 +155,7 @@ if __name__ == "__main__":
 
                     if driver_class == 3: hardware.aggressive_buzz()
 
-                    featuresRepository.insert_data(data)
+                    featuresRepository.insert_data(data, session_id)
                     print(f"Data inserted in local database")
 
 

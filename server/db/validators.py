@@ -98,7 +98,8 @@ class TelemetryRow(BaseModel):
     acc_lat:           float | None = None
     engine_speed:      float | None = None
     throttle_position: float | None = None
-    classification:    int               
+    session_id:        str   | None = None
+    classification:    int   | None = None           
  
  
 class TelemetryRequest(BaseModel):
@@ -108,6 +109,5 @@ class TelemetryRequest(BaseModel):
     submitted_at is stamped by the server on arrival.
     """
     device_identifier: str = Field(min_length=1, max_length=255)
-    session_id: UUID
     version:    int 
     telemetry:  list[TelemetryRow]

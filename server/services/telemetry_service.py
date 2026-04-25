@@ -14,7 +14,7 @@ def insert_telemetry(db: Session, client: Client, payload: TelemetryRequest) -> 
         Telemetry(
             local_id=          row.local_id,
             client_id=         client.id,
-            session_id=        payload.session_id,
+            session_id=        row.session_id,
             created_at=        row.created_at,
             submitted_at=      now,             
             speed=             row.speed,

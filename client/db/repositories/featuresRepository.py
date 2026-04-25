@@ -1,12 +1,12 @@
-from sqlalchemy.orm import Session
-
 from db.schemas import Features
 from db.session import SessionLocal, ensure_schema
 from db.validators import FeaturePayload
+import uuid
+
 
 ensure_schema()
 
-def insert_data(payload: FeaturePayload) -> None:
+def insert_data(payload: FeaturePayload, session_id: uuid) -> None:
     with SessionLocal() as db:
         record = Features(
             speed=payload.speed,
@@ -14,6 +14,7 @@ def insert_data(payload: FeaturePayload) -> None:
             acc_lat=payload.acc_lat,
             engine_speed=payload.engine_speed,
             throttle_position=payload.throttle_position,
+            session_id=session_id
         )
         db.add(record)
         db.commit()

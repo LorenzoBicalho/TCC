@@ -104,6 +104,7 @@ class Features(Base):
     acc_lat = Column(Float, nullable=True)
     engine_speed = Column(Float, nullable=True)
     throttle_position = Column(Float, nullable=True)
+    session_id = Column(String, nullable=False)
 
     def __repr__(self):
 
