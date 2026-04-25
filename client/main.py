@@ -23,6 +23,7 @@ stop_thread = threading.Event()
 class State:
     def __init__(self):
         self.lock = threading.Lock()
+        self.new_data = threading.Event()
         self.features = {}
 
 
