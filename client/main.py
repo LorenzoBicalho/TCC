@@ -76,37 +76,49 @@ if __name__ == "__main__":
     train_thread_handle = None
 
     try:
-
         if SERIAL_NUMBER in ["UNKNOWN", "ERROR"]:
             raise RuntimeError("Device ID not available")
 
         device_id = SERIAL_NUMBER.lower()
 
-        print(f"Verifying server {SERVER_URL} connection...")
+        print(f"Checking internet connection...")
         is_connected = hardware.check_internet_connection()
         hardware.require_internet_buzz(is_connected)
+
+        is_server_on = False
         if is_connected:
-            print(f"Connection established")
+            print(f"Hardware is connected to the internet")
+            print(f"Verifying server {SERVER_URL} connection...")
             client_info = api_routes.register_client(device_id)
-            device_id = client_info.get('device_identifier')
+            is_server_on = client_info.status_code == 200
+            if is_server_on:
+                print(f"Connected to server: {SERVER_URL}")
+            else:
+                print(f"Failed trying to connect to server: {SERVER_URL}")
+
+        if is_connected and is_server_on:
+            response_data = client_info.json()
+            device_id = response_data.get('device_identifier')
+
             model = modelRepository.get_global_model()
             model_version = model.version if model is not None else 0
-            
+
             latest_model = api_routes.get_latest_model(device_id, model_version)
             params = latest_model.get('model')
             current_version = latest_model.get('current_version')
 
-            if latest_model['has_update'] == 1:
+            if latest_model.get('has_update') == 1:
                 print("Global Model has update")
                 modelRepository.delete_all_models()
                 modelRepository.insert_global_model(params, current_version)
                 print("Local Model updated")
         else:
-            print(f"No connection established. Initiating offline mode.]")
-            params = modelRepository.get_global_model()
-            current_version = params['version']
-            if params is None:
+            print("Initiating offline mode.")
+            local_model = modelRepository.get_global_model()
+            if local_model is None:
                 raise RuntimeError("No model available in offline mode")
+            params = modelRepository.get_global_params(local_model)  
+            current_version = local_model.version
 
         print(f"Conectando à porta {PORTA_SERIAL}...")
 
@@ -157,8 +169,6 @@ if __name__ == "__main__":
 
                     featuresRepository.insert_data(data, session_id)
                     print(f"Data inserted in local database")
-
-
     except SerialException as e:
         print(f"Erro na conexão serial: {e}")
     except KeyboardInterrupt:
