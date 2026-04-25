@@ -31,9 +31,9 @@ state = State()
 def train_thread(stop_event, device_id):
     while not stop_event.is_set():
         try:
-            print("Checking data count")
+            print("Checking data count \n")
             data_count = featuresRepository.get_data_count()
-            if  data_count >= 1600:
+            if  data_count >= 300:
                 if hardware.check_internet_connection():
                     print(f"Trainini new model with {data_count} samples")
                     trained_params, metrics, num_samples, version = neurofuzzy_service.train_model()
@@ -172,6 +172,8 @@ if __name__ == "__main__":
             read_acc_thread.start()
 
             while not stop_thread.is_set():
+                state.new_data.wait(timeout=2)  # blocks until new data arrives
+                state.new_data.clear()
                 data = utils.format_data(state)
                 print(f"Reading complete. Data: {data}")
                 if data.get("speed", 0) != 0:

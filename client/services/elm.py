@@ -121,7 +121,8 @@ def read_thread(stop_thread, serial, state) -> None:
             state.features["rpm"] = read_pid(serial, "010C") if "010C" in supported_pids else 0.0
 
             state.features["pos_pedal"] = read_pid(serial, "0111") if "0111" in supported_pids else 0.0
-
+            
+        state.new_data.set()  # signal that fresh data is available
         time.sleep(1)
 
 def parse_supported_pids(lines: List[str]) -> List[int]:

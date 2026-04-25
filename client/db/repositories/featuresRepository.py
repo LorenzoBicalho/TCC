@@ -3,7 +3,6 @@ from db.session import SessionLocal, ensure_schema
 from db.validators import FeaturePayload
 import uuid
 
-
 ensure_schema()
 
 def insert_data(payload: FeaturePayload, session_id: uuid) -> None:
@@ -28,9 +27,7 @@ def get_data():
         )
 
 def get_data_count():
-
     with SessionLocal() as db:
-
         return (
             db.query(Features)
             .count()
