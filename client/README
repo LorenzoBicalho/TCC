@@ -1,0 +1,365 @@
+# Client — Documentation
+
+> Raspberry Pi client for the driving behavior classification system.  
+> Reads vehicle data via OBD2, classifies driving style in real time using a neuro-fuzzy model, and participates in federated learning by sending locally trained weights to the central server.
+
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Project Structure](#project-structure)
+  - [api/](#api)
+  - [db/](#db)
+  - [services/](#services)
+  - [utils/](#utils)
+  - [main.py](#mainpy)
+- [Data Model](#data-model)
+  - [WeightsMixin — Model Parameters](#weightsmixin--model-parameters)
+  - [GlobalModel](#globalmodel)
+  - [Features](#features)
+- [Threads](#threads)
+  - [read\_thread — OBD2 Reading](#read_thread--obd2-reading)
+  - [accelerometer\_thread — IMU Reading](#accelerometer_thread--imu-reading)
+  - [train\_thread — Federated Training](#train_thread--federated-training)
+- [OBD2 PIDs Reference](#obd2-pids-reference)
+  - [ELM327 Initialization Commands](#elm327-initialization-commands)
+  - [Data PIDs](#data-pids)
+- [Accelerometer Support](#accelerometer-support)
+- [Startup Flow](#startup-flow)
+
+---
+
+## Overview
+
+The client runs on a Raspberry Pi permanently installed in the vehicle. At startup it connects to the OBD2 port, reads sensor data continuously, classifies the driver's behavior in real time, and — when enough data has accumulated and internet is available — trains a local model update and sends it to the federated server.
+
+The classification uses a **neuro-fuzzy model** (Sugeno inference structure, Gaussian membership functions, gradient-descent training) that was implemented analytically, without third-party ML libraries, to meet the memory constraints of embedded targets.
+
+---
+
+## Project Structure
+
+```
+client/
+├── api/
+│   └── api_routes.py        # HTTP routes to the FastAPI server
+│   └── client.py            # HTTP endpoints and requests to the FastAPI server
+├── db/
+│   ├── schemas.py           # SQLAlchemy ORM schemas
+│   ├── validators.py        # schemas data structures and validation
+│   └── repositories/        # CRUD helpers for each table
+├── services/
+│   ├── accelerometer.py         # MPU-6050 driver
+│   ├── accelerometer_BNO055.py  # BNO055 driver (alternative)
+│   ├── decoders.py              # OBD2 response decoders
+│   ├── elm.py                   # ELM327 configuration and communication
+│   └── neurofuzzy.py            # Classification and training logic
+├── utils/
+│   ├── hardware.py          # Raspberry Pi hardware helpers (buzzer, connectivity)
+│   └── utils.py             # General helpers
+└── main.py                  # Entry point — wires everything together
+```
+
+---
+
+### api/
+
+**`api_routes.py`** — All HTTP communication with the FastAPI server.
+
+| Function | Endpoint | Description |
+|---|---|---|
+| `register_client(device_id)` | `POST /clients` | Registers this device on the server using its serial number as `device_identifier`. |
+| `get_latest_model(device_id, model_version)` | `POST /model/latest` | Fetches the latest global model from the server, passing the current local version so the server can decide whether an update is needed. |
+| `send_local_weights(device_id, trained_params, metrics, num_samples, version)` | `POST /weights` | Submits locally trained model weights to the server for federated aggregation. |
+| `send_telemetry(device_id, version, rows)` | `POST /weights` | Sends raw telemetry rows collected during the training period. |
+
+---
+
+### db/
+
+SQLite database local to the Raspberry Pi. Managed with SQLAlchemy.
+
+Contains two tables: `global_model_table` and `features_table`. See [Data Model](#data-model) for details.
+
+**`db/repositories/`** — Thin repository layer with helper functions for reading, inserting, and deleting rows from each table. Business logic should go in `services/`, not here.
+
+---
+
+### services/
+
+**`accelerometer.py`** — Driver for the **MPU-6050** IMU sensor over I2C. Reads acceleration (x, y) and gyroscope (x, y) data.
+
+**`accelerometer_BNO055.py`** — Driver for the **BNO055** IMU sensor (alternative hardware). To switch sensors, change the import in `main.py`.
+
+**`decoders.py`** — Decodes raw hexadecimal OBD2 responses into human-readable float values for each PID. See [OBD2 PIDs Reference](#obd2-pids-reference).
+
+**`elm.py`** — Configures and communicates with the ELM327 OBD2 adapter over serial. Sends initialization commands at startup, queries PIDs, and returns raw responses for `decodes.py` to parse.
+
+**`neurofuzzy.py`** — Core ML service. Provides:
+- **Classification**: given a feature vector, runs forward pass through the neuro-fuzzy model and returns a driving style label (aggressive / normal / calm).
+- **Training pipeline**:
+  1. Loads feature data from the local SQLite database.
+  2. Clusters it (k-means style).
+  3. Maps clusters to class labels (1 = calm, 2 = normal, 3 = aggressive) via `map_clusters_to_classes`.
+  4. Splits into train / validation sets using `StratifiedShuffleSplit` (70 / 30).
+  5. Runs gradient-descent training.
+  6. Returns `trained_params`, `metrics`, `num_samples`, `version`.
+
+---
+
+### utils/
+
+**`hardware.py`** — Raspberry Pi hardware utilities: activating the buzzer, checking internet connectivity.
+
+**`utils.py`** — Miscellaneous helpers shared across modules.
+
+---
+
+### main.py
+
+Entry point. Orchestrates the full startup sequence and spawns the three worker threads.
+
+**`device_id`** is derived from the Raspberry Pi's CPU serial number, ensuring a unique and stable identifier without manual configuration.
+
+See [Startup Flow](#startup-flow) and [Threads](#threads) for details.
+
+---
+
+## Data Model
+
+### WeightsMixin — Model Parameters
+
+Shared by `GlobalModel` (and the currently commented-out `LocalModel`). All fields are JSON columns storing numpy arrays serialized as lists.
+
+| Column | Shape | Description |
+|---|---|---|
+| `c` | `[[...], [...]]` | Premise layer weight matrix — centers of the Gaussian membership functions for each input feature and each rule. |
+| `p` | `[[...], [...]]` | Consequent layer weight matrix — linear coefficients of the Sugeno output functions. |
+| `s` | `[[...], [...]]` | Premise layer width matrix (sigma) — controls the spread/sharpness of each Gaussian membership function. |
+| `q` | `[...]` | Consequent layer bias vector — constant terms of the Sugeno output functions. |
+| `cluster_aggressive` | `[...]` | Centroid of the "aggressive" driving cluster in feature space, used to initialize or anchor membership functions. |
+| `cluster_normal` | `[...]` | Centroid of the "normal" driving cluster. |
+| `cluster_calm` | `[...]` | Centroid of the "calm" driving cluster. |
+
+---
+
+### GlobalModel
+
+Table: `global_model_table`
+
+Stores each version of the global model received from the server.
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | String (UUID) | Primary key, auto-generated. |
+| `version` | Integer | Monotonically increasing model version number. Unique — only one record per version. |
+| `created_at` | DateTime | UTC timestamp of when this version was stored locally. |
+| *(+ WeightsMixin fields)* | | See above. |
+
+---
+
+### Features
+
+Table: `features_table`
+
+Stores raw sensor readings collected during driving sessions. Accumulates until a training cycle is triggered, then is cleared after a successful upload.
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | Integer | Auto-incremented primary key. |
+| `created_at` | DateTime | UTC timestamp of the reading. |
+| `speed` | Float | Vehicle speed in km/h, from OBD2 PID `010D`. |
+| `acc_long` | Float | Longitudinal acceleration (forward/braking) in m/s², from the IMU. |
+| `acc_lat` | Float | Lateral acceleration (cornering) in m/s², from the IMU. |
+| `engine_speed` | Float | Engine RPM, from OBD2 PID `010C`. |
+| `throttle_position` | Float | Absolute throttle position (0–100%), from OBD2 PID `0111`. |
+| `session_id` | String | UUID that groups readings from the same drive session. A new value is generated each time the car (and the client) initializes. |
+
+---
+
+## Threads
+
+After completing startup, `main.py` spawns three concurrent threads. They share a `state` object protected by `state.lock`, and communicate availability of fresh data via `state.new_data` (a threading `Event`).
+
+---
+
+### read_thread — OBD2 Reading
+
+**Runs every 1 second.**
+
+Queries the ELM327 for the supported PIDs and writes the decoded values into `state.features`:
+
+| Key | PID | Signal |
+|---|---|---|
+| `speed` | `010D` | Vehicle speed (km/h) |
+| `rpm` | `010C` | Engine RPM |
+| `pos_pedal` | `0111` | Throttle position (%) |
+
+If a PID is not in the vehicle's `supported_pids` list, the value defaults to `0.0` instead of querying (avoids timeouts on unsupported vehicles).
+
+After each read, `state.new_data.set()` signals the main loop that fresh data is ready. The main loop then:
+1. Checks if `speed > 0` (vehicle is moving).
+2. Classifies the current feature vector using the neuro-fuzzy model.
+3. If the result is **aggressive**, activates the buzzer.
+4. Inserts the reading into `features_table` with the current `session_id`.
+
+---
+
+### accelerometer_thread — IMU Reading
+
+**Runs every 100 ms (10 Hz).**
+
+Reads raw acceleration and gyroscope data from the IMU sensor (MPU-6050 or BNO055) and **appends** values to rolling lists in `state.features`:
+
+| Key | Source | Description |
+|---|---|---|
+| `accel_x` | Accelerometer | Longitudinal axis (forward/braking) |
+| `accel_y` | Accelerometer | Lateral axis (left/right) |
+| `gyro_x` | Gyroscope | Rotation rate around longitudinal axis |
+| `gyro_y` | Gyroscope | Rotation rate around lateral axis |
+
+Running at 10 Hz while OBD2 reads at 1 Hz means each OBD2 cycle has ~10 IMU samples to aggregate (e.g. mean or peak) before inserting into the database.
+
+If the sensor fails to initialize or throws an error, the thread exits and calls `sys.exit(1)` to prevent silent data loss.
+
+---
+
+### train_thread — Federated Training
+
+**Polls every 60 seconds.**
+
+Manages the full federated learning cycle:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Every 60 seconds                        │
+│                                                             │
+│  Check data count in features_table                         │
+│       │                                                     │
+│       ├─ < 1600 samples ──► wait                             │
+│       │                                                     │
+│       └─ ≥ 1600 samples                                      │
+│              │                                              │
+│              ├─ No internet ──► log and wait                │
+│              │                                              │
+│              └─ Internet available                          │
+│                     │                                       │
+│                     ▼                                       │
+│              Train local model (neurofuzzy_service.train)   │
+│                     │                                       │
+│                     ▼                                       │
+│              POST /weights  (trained params + metrics)      │
+│                     │                                       │
+│                     ├─ Failed ──► keep data, retry later    │
+│                     │                                       │
+│                     └─ Success                              │
+│                            │                                │
+│                            ▼                                │
+│                     POST /weights (telemetry rows)          │
+│                            │                                │
+│                            ├─ Failed ──► keep data, retry   │
+│                            │                                │
+│                            └─ Success                       │
+│                                   │                         │
+│                                   ▼                         │
+│                            DELETE all rows from features_table│
+└─────────────────────────────────────────────────────────────┘
+```
+
+Telemetry is only deleted after a confirmed successful upload, so no data is lost if the connection drops mid-cycle.
+
+---
+
+## OBD2 PIDs Reference
+
+### ELM327 Initialization Commands
+
+Sent once at startup by `elm.py` to configure the adapter:
+
+| Command | Description |
+|---|---|
+| `ATZ` | Reset the ELM327 |
+| `ATE0` | Disable echo (adapter won't repeat commands back) |
+| `ATL0` | Disable long-line formatting |
+| `ATS0` | Disable spaces between response bytes |
+| `ATH0` | Disable CAN headers (cleaner responses) |
+| `ATSP0` | Auto-select OBD protocol |
+
+### Data PIDs
+
+Standard SAE J1979 PIDs queried during operation:
+
+| PID | Signal | Notes |
+|---|---|---|
+| `010C` | Engine RPM | Used in feature vector |
+| `010D` | Vehicle speed | Used in feature vector; gates classification (must be > 0) |
+| `0111` | Absolute throttle position | Used in feature vector |
+| `0105` | Coolant temperature | Available, not currently in feature vector |
+| `010F` | Intake air temperature | Available, not currently in feature vector |
+| `0104` | Calculated engine load | Available, not currently in feature vector |
+| `010B` | Intake manifold pressure (MAP) | Available, not currently in feature vector |
+| `010E` | Ignition timing advance (degrees before TDC) | Available, not currently in feature vector |
+| `012F` | Fuel level remaining | Available, not currently in feature vector |
+| `0142` | Evaporative emission control system voltage | Available, not currently in feature vector |
+| `0143` | Canister purge system percentage | Available, not currently in feature vector |
+
+---
+
+## Accelerometer Support
+
+Two IMU drivers are available. Choose based on the hardware installed:
+
+| Sensor | File | I2C Address |
+|---|---|---|
+| MPU-6050 | `services/accelerometer.py` | `0x68` or `0x69` |
+| BNO055 | `services/accelerometer_BNO055.py` | varies |
+
+To switch sensors, update the import at the top of `main.py`:
+
+```python
+# MPU-6050 (default)
+from services.accelerometer import init, sensor
+
+# BNO055 (alternative)
+from services.accelerometer_BNO055 import init, sensor
+```
+
+To verify I2C is working after enabling it in `/boot/firmware/config.txt`:
+
+```bash
+ls /dev/i2c*          # Expected: /dev/i2c-1
+sudo i2cdetect -y 1   # MPU-6050 should appear at address 68 or 69
+```
+
+---
+
+## Startup Flow
+
+```
+main.py starts
+│
+├─ Read device_id from Raspberry Pi CPU serial number
+│
+├─ Check internet connectivity
+│       └─ No internet ──► activate buzzer, run OFFLINE
+│
+├─ Register / fetch client info from server
+│       └─ Server unreachable ──► run OFFLINE
+│
+├─ (Online) Fetch global model from server
+│       └─ Compare version with local model
+│              └─ Local is outdated ──► update local model
+│
+├─ Connect to OBD2 (ELM327 over serial)
+│
+└─ Spawn three threads
+        ├─ read_thread         (OBD2, 1 Hz)
+        ├─ accelerometer_thread (IMU, 10 Hz)
+        └─ train_thread        (training cycle, every 60 s)
+```
+
+After threads are running, the main loop processes each `state.new_data` event:
+- Skip if `speed == 0` (parked).
+- Classify with neuro-fuzzy model → buzz if aggressive.
+- Insert reading into `features_table` with `session_id`.

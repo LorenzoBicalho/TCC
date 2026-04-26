@@ -10,8 +10,6 @@ def init():
 
     try:
         # Endereço padrão do MPU-6050
-        print(dir(mpu6050))
-        print(mpu6050.mpu6050)
         sensor = mpu6050.mpu6050(0x68)
         print("MPU-6050 inicializado com sucesso")
 

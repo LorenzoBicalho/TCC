@@ -13,7 +13,7 @@ from db.schemas import (
 from db.validators import SubmitWeightsRequest, WeightPayload
 from utils import average_vectors
 
-import services.client_service
+import services.client_service as client_service
 
 WEIGHT_FIELDS = (
     "c",

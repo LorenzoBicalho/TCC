@@ -84,7 +84,7 @@ if __name__ == "__main__":
 
         print(f"Checking internet connection...")
         is_connected = hardware.check_internet_connection()
-        hardware.require_internet_buzz(is_connected)
+        is_connected = hardware.require_internet_buzz(is_connected)
 
         is_server_on = False
         if is_connected:

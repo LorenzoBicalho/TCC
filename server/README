@@ -1,0 +1,266 @@
+# Server — Documentation
+
+> FastAPI server for the driving behavior federated learning system.  
+> Manages client registration, global model distribution, weight aggregation, and telemetry storage.
+
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Project Structure](#project-structure)
+  - [controllers/](#controllers)
+  - [services/](#services)
+  - [db/](#db)
+  - [main.py](#mainpy)
+- [API Endpoints](#api-endpoints)
+  - [POST /clients](#post-clients)
+  - [POST /model/latest](#post-modellatest)
+  - [POST /weights](#post-weights)
+  - [POST /telemetry](#post-telemetry)
+  - [POST /federated/aggregate](#post-federatedaggregate)
+- [Federated Aggregation](#federated-aggregation)
+  - [Aggregation Condition](#aggregation-condition)
+  - [Aggregation Strategies](#aggregation-strategies)
+- [Related Tooling](#related-tooling)
+
+---
+
+## Overview
+
+The server acts as the central coordinator for the federated learning system. Raspberry Pi clients register themselves, pull the current global model, train locally on their own driving data, and submit weight updates. The server decides when enough updates have arrived and runs an aggregation strategy to produce a new global model version — without ever directly accessing raw client data.
+
+Interactive API docs (payloads and response schemas) are available at:
+
+```
+http://<server_ip>:8000/docs
+```
+
+---
+
+## Project Structure
+
+```
+server/
+├── controllers/
+│   ├── client.py         # HTTP layer for client management
+│   ├── federated.py      # HTTP layer for aggregation
+│   └── telemetry.py      # HTTP layer for telemetry ingestion
+├── db/
+│   ├── schemas.py        # Pydantic request/response schemas
+│   └── validators.py     # Input validation logic
+├── services/
+│   ├── client_service.py     # Client business logic
+│   ├── federated_service.py  # Aggregation business logic
+│   └── telemetry_service.py  # Telemetry business logic
+└── main.py               # FastAPI app, route definitions, background tasks
+```
+
+For database models, migrations, mock client, and the init script, see the [project-level README](../README.md).
+
+---
+
+### controllers/
+
+Thin HTTP layer. Each controller maps directly to a service and handles only request parsing, response formatting, and HTTP status codes. Business logic lives in `services/`.
+
+| File | Responsibility |
+|---|---|
+| `client.py` | Client registration and lookup |
+| `federated.py` | Triggering and responding to aggregation |
+| `telemetry.py` | Receiving and storing telemetry data |
+
+---
+
+### services/
+
+| File | Responsibility |
+|---|---|
+| `client_service.py` | Creating/reactivating clients, counting active clients, querying submission counts per version |
+| `federated_service.py` | Checking aggregation conditions, running the configured strategy, persisting the new global model |
+| `telemetry_service.py` | Saving telemetry rows to the database |
+
+---
+
+### db/
+
+**`schemas.py`** — Pydantic models defining the shape of every request body and response payload. These are what you see reflected in `/docs`.
+
+**`validators.py`** — Input validation helpers called before data reaches the service layer (e.g. verifying that weight arrays have the expected dimensions).
+
+---
+
+### main.py
+
+Defines the FastAPI application instance and registers all routes. Also owns the `run_aggregation` background task, which is scheduled automatically after a client submits weights.
+
+---
+
+## API Endpoints
+
+### POST /clients
+
+Registers a new client device or reactivates an existing one.
+
+**Request fields:**
+
+| Field | Type | Description |
+|---|---|---|
+| `device_identifier` | string | Raspberry Pi CPU serial number — unique hardware ID. |
+| `description` | string (optional) | Human-readable label for the device. |
+
+**Behavior:**
+- If the `device_identifier` does not exist → creates a new client record.
+- If it already exists → reactivates the client (if inactive) and/or updates the description.
+
+---
+
+### POST /model/latest
+
+Returns the current global model to the client, if the client's local version is outdated.
+
+**Request fields:**
+
+| Field | Type | Description |
+|---|---|---|
+| `device_identifier` | string | The client's hardware ID. |
+| `client_version` | integer | The model version the client currently holds locally. |
+
+**Behavior:**
+- Verifies the client is registered.
+- Fetches the latest global model version from the database.
+- If `client_version` is up to date → responds with a "no update needed" signal.
+- If `client_version` is outdated → responds with the full global model weights.
+
+---
+
+### POST /weights
+
+Receives locally trained weights from a client.
+
+**Request fields:**
+
+| Field | Type | Description |
+|---|---|---|
+| `device_identifier` | string | The client's hardware ID. |
+| `weights` | object | Trained model parameters (`c`, `p`, `s`, `q`, cluster centroids). |
+| `metrics` | object | Training metrics (loss, accuracy, etc.) reported by the client. |
+| `num_samples` | integer | Number of samples used for training — used by weighted aggregation strategies. |
+| `version` | integer | The global model version the client trained on top of. |
+
+**Behavior:**
+1. Verifies the client is registered.
+2. Checks that the submitted `version` matches the current global model version (stale submissions are rejected).
+3. Checks that the client has not exceeded the submission limit for this version.
+4. Stores the submission.
+5. Schedules `run_aggregation` as a background task (runs after the response is returned).
+
+---
+
+### POST /telemetry
+
+Receives raw telemetry rows from a client for research and project documentation purposes.
+
+**Request fields:**
+
+| Field | Type | Description |
+|---|---|---|
+| `device_identifier` | string | The client's hardware ID. |
+| `version` | integer | Model version active when the data was collected. |
+| `telemetry` | array | List of feature rows (speed, acc_long, acc_lat, engine_speed, throttle_position, session_id). |
+
+**Behavior:**
+- Verifies the client is registered.
+- Saves all rows to the telemetry table.
+
+> **Note:** Telemetry storage exists for academic study and documentation only. In a real production deployment, the server should not store raw client driving data.
+
+---
+
+### POST /federated/aggregate
+
+**Internal use only** — not intended to be called by clients directly.
+
+Manually triggers the aggregation pipeline. Useful for testing or forcing a round outside the automatic background task. See [Federated Aggregation](#federated-aggregation) for details.
+
+---
+
+## Federated Aggregation
+
+`run_aggregation` is triggered automatically as a background task each time a client successfully submits weights. It first evaluates whether conditions for a new round are met, and if so, runs the configured strategy and saves a new global model version.
+
+### Aggregation Condition
+
+```python
+def check_aggregation_condition(db, current_version) -> bool
+```
+
+The system does **not** wait for every active client to submit before aggregating. Instead, it uses a flexible condition that balances freshness against waiting time:
+
+```
+┌─────────────────────────────────────────────┐
+│         check_aggregation_condition         │
+│                                             │
+│  active_clients == 0 ──► False (skip)       │
+│                                             │
+│  no submissions yet ──► False (skip)        │
+│                                             │
+│  all active clients submitted ──► True      │
+│                                             │
+│  otherwise, check two thresholds:           │
+│    lead  = max_submissions - min_submissions│
+│    ratio = submitted_clients / active_clients│
+│                                             │
+│    lead  >= min_submission_lead    ┐        │
+│    ratio >= min_clients_ratio      ┼─► True │
+│    (both must hold)                ┘        │
+└─────────────────────────────────────────────┘
+```
+
+Both thresholds are configurable in `config.py`:
+
+| Setting | Description |
+|---|---|
+| `min_submission_lead` | Minimum gap between the most and least active submitting clients before early aggregation is allowed. Prevents one fast client from dominating. |
+| `min_clients_ratio_for_aggregation` | Minimum fraction of active clients that must have submitted at least once. Ensures the round is representative. |
+
+---
+
+### Aggregation Strategies
+
+A client may send multiple weight batches between rounds. Each strategy handles per-client averaging internally before combining across clients.
+
+The strategy is selected in `config.py`:
+
+```python
+AGGREGATION_STRATEGY = "FedAvg"   # or "FedAvgWeighted"
+```
+
+| Strategy | Description |
+|---|---|
+| `FedAvg` | Simple average of all client weight updates, regardless of how many samples each client trained on. |
+| `FedAvgWeighted` | Weighted average where each client's contribution is proportional to its `num_samples`. Clients that trained on more data have greater influence on the new global model. |
+
+The strategy registry makes it straightforward to plug in additional algorithms:
+
+```python
+AGGREGATION_STRATEGIES = {
+    "FedAvg": fed_avg,
+    "FedAvgWeighted": fed_avg_weighted,
+    # Future: "FedProx", "SCAFFOLD", "FedAdam", "FedDyn"
+}
+```
+
+After aggregation, the new model is saved to the database with an incremented version number and becomes the model returned by `POST /model/latest` on the next client pull.
+
+---
+
+## Related Tooling
+
+See the [project README](../README.md) for setup and usage of:
+
+- **Docker deployment** and local development setup
+- **Database migrations** with Alembic
+- **`script/script.py`** — initializing the first global model (version 1)
+- **`mock_client/`** — simulating client registration, weight submission, and full training rounds
+- **`db/queries/`** — example SQL queries for inspecting the database

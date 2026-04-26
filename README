@@ -1,30 +1,333 @@
-http://76.13.171.142:8000
+# TCC — Driving Behavior Classification System
 
-# POST /clients — response printed
-python3 client.py --request clients --client D
+## Project Overview
 
-python3 client.py --base-url http://76.13.171.142:8000 --request clients --client D
+This project implements a distributed system for collecting vehicle telemetry data, performing local model training, and synchronizing model weights with a centralized server using a federated learning architecture.
 
+The system consists of:
 
-# POST /weights — dummy weights, response printed
-python3 client.py --request weights --client D --version 1
+A FastAPI server
+A PostgreSQL database
+Multiple Raspberry Pi clients
+A neuro-fuzzy model trained locally and aggregated globally
 
-# Full train + POST /weights (register + each weights response printed)
-python3 client.py --request weights --train --client D --samples 1600
+---
 
+## Table of Contents
+
+- [Server Setup](#server-setup)
+  - [Deploy with Docker](#deploy-with-docker)
+  - [Run Locally (no Docker)](#run-locally-no-docker)
+  - [Initialize the Global Model](#initialize-the-global-model)
+  - [Database Migrations](#database-migrations)
+  - [Inspect the Database](#inspect-the-database)
+- [Mock Client (Testing)](#mock-client-testing)
+- [Raspberry Pi Setup](#raspberry-pi-setup)
+  - [SSH Access](#ssh-access)
+  - [Change User Password](#change-user-password)
+  - [Download Client Code](#download-client-code)
+  - [Enable I2C (MPU-6050)](#enable-i2c-mpu-6050)
+  - [Run Client on Boot (systemd)](#run-client-on-boot-systemd)
+- [Folder Notes](#folder-notes)
+
+---
+
+## Server Setup
+
+The server exposes a FastAPI application and runs in two Docker containers: one for the Python app, one for PostgreSQL. Database data is persisted at `/var/lib/postgresql/data`.
+
+**Live server:** `http://76.13.171.142:8000`  
+SSH access: contact Lorenzo for credentials.
+
+### Deploy with Docker
+
+```bash
+git clone https://github.com/LorenzoBicalho/TCC.git
+cd server
+# Create environment file (use .env.example as reference)
+nano .env
+# Install Docker tooling
+pip install docker docker-compose
+# Build and start containers
+docker-compose up --build
+```
+
+**Useful Docker commands:**
+```bash
+docker ps -a                            # List all containers
+docker logs <container_name>            # View container logs
+docker exec -it <container_name> sh     # Open a shell inside a container
+```
+
+---
+
+### Run Locally (no Docker)
+
+```bash
+git clone https://github.com/LorenzoBicalho/TCC.git
+cd server
+# Create environment file (use .env.example as reference)
+nano .env
+# Create and activate a virtual environment
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+# Run on localhost only
 uvicorn main:app --reload
+# Run on all interfaces (visible to other devices on the LAN)
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
 
-Fazer conexão raspbery e servidor.
+---
 
-Fazer lógica de ligação e desligamento do raspbery.
+### Initialize the Global Model
 
-Verificar como salvar dados coletados.
+Insert the first global model (version 1) before any client can interact with the server:
 
-Fazer coletas.
+```bash
+cd script
+python script.py --init load --force
+```
 
-Fazer desenho do compartimento 3d.
+---
 
-Escrever metodologia.
+### Database Migrations
 
-raspbery: 192.168.0.26
+Generate a migration whenever you change a database schema:
+
+```bash
+cd server/db
+alembic revision --autogenerate -m "<description of change>"
+alembic upgrade head
+```
+
+Apply the migration:
+
+```bash
+alembic upgrade head
+```
+
+If running inside Docker containers, restart them instead:
+
+```bash
+docker-compose down
+docker-compose up --build
+```
+
+---
+
+### Inspect the Database
+
+**Locally:** Install [pgAdmin 4](https://www.pgadmin.org/) (or any PostgreSQL client) and connect using the credentials in your `.env` file. Example queries are available in `server/db/queries/`.
+
+**On the remote server:** Connect via SSH and use `psql` inside the database container:
+
+```bash
+docker exec -it <db_container_name> psql -U <db_user> -d <db_name>
+```
+
+---
+
+## Mock Client (Testing)
+
+The mock client simulates a Raspberry Pi device. All scripts are in the `mock_client/` directory.
+
+```bash
+cd mock_client
+```
+
+### Arguments Reference
+
+| Argument | Required | Description |
+|---|---|---|
+| `--request` | ✅ | Endpoint to call: `clients` or `weights` |
+| `--client` | ✅ | Client letter A–J (maps to `mock_client_<letter>`) |
+| `--base-url` | | Server base URL (default: `http://127.0.0.1:8000`) |
+| `--description` | | Optional description, only with `--request clients` |
+| `--version` | | Model version to send (only with `--request weights`, no `--train`) |
+| `--train` | | Run full train + push flow (only with `--request weights`) |
+| `--samples` | | Number of training samples (default: 1600, used with `--train`) |
+| `--seed` | | Random seed for reproducibility |
+| `--rounds` | | Number of pull → train → push rounds (default: 1) |
+| `--storegbl` | | Also evaluate global model on full CSV (used with `--train`) |
+| `--alpha` | | Learning rate (default: 0.01) |
+| `--epochs` | | Training epochs (default: 2) |
+| `--shuffle` | | Shuffle data before training |
+| `--grad-clip` | | Gradient clipping threshold |
+| `--mu` | | FedProx mu regularization parameter (default: 0.0) |
+
+### Examples
+
+**Register a client** (`POST /clients`):
+
+```bash
+# Against local server
+python3 client.py --request clients --client D
+# Against remote server
+python3 client.py --base-url http://76.13.171.142:8000 --request clients --client D
+```
+
+**Submit dummy weights** (`POST /weights`, no training):
+
+```bash
+python3 client.py --request weights --client D --version 1
+```
+
+**Full federated round** (pull global model → train on local data → push weights):
+
+```bash
+python3 client.py --request weights --train --client D --samples 1600
+```
+
+**Full round with extra options** (2 rounds, reproducible, evaluate global model):
+
+```bash
+python3 client.py \
+  --request weights --train \
+  --client D --samples 1600 \
+  --rounds 2 --seed 42 \
+  --epochs 5 --alpha 0.005 \
+  --shuffle --storegbl
+```
+
+---
+
+## Raspberry Pi Setup
+
+**Known IPs:** `192.168.0.26` · `192.168.178.158`
+
+### SSH Access
+
+```bash
+# Enable SSH if not already active
+sudo systemctl status ssh
+sudo systemctl enable ssh
+sudo systemctl start ssh
+hostname -I   # Find the Pi's IP
+# Connect
+ssh lab@<ip>       # Older Raspberry Pi  (password: lab123)
+ssh moblab@<ip>    # Newer Raspberry Pis
+```
+
+---
+
+### Change User Password
+
+```bash
+passwd                    # Change current user's password
+sudo passwd <user>        # Change a specific user's password
+                          # Previous password was likely: 123456
+```
+
+---
+
+### Download Client Code
+
+Use sparse checkout to download only the `client/` directory:
+
+```bash
+git clone --no-checkout https://github.com/LorenzoBicalho/TCC.git
+cd TCC
+git sparse-checkout init --cone
+git sparse-checkout set client
+git checkout main
+# Rename the repo folder
+mv TCC moblab
+# Set up the Python environment
+cd /home/moblab/Documents/moblab/client
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+# Create environment file
+cp .env.example .env
+nano .env
+```
+
+Key paths:
+- Script: `/home/moblab/Documents/moblab/client/main.py`
+- Python interpreter: `/usr/bin/python3`
+
+---
+
+### Enable I2C (MPU-6050)
+
+```bash
+sudo nano /boot/firmware/config.txt
+```
+
+Find `#dtparam=i2c_arm=on` and change it to:
+
+```
+dtparam=i2c_arm=on
+```
+
+Then reboot and verify:
+
+```bash
+sudo reboot
+# After reboot
+ls /dev/i2c*           # Expected: /dev/i2c-1
+sudo i2cdetect -y 1   # Expected: address 68 or 69 for MPU-6050
+```
+
+---
+
+### Run Client on Boot (systemd)
+
+Create the service file:
+
+```bash
+sudo nano /etc/systemd/system/moblab.service
+```
+
+Paste the following:
+
+```ini
+[Unit]
+Description=OBD2 Data Collection and Local Training System
+After=network.target dev-ttyUSB0.device
+
+[Service]
+User=moblab
+WorkingDirectory=/home/moblab/Documents/moblab/client
+ExecStart=/home/moblab/Documents/moblab/client/venv/bin/python /home/moblab/Documents/moblab/client/main.py
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+TimeoutStartSec=30
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable moblab.service
+sudo systemctl start moblab.service
+systemctl status moblab
+```
+
+**After a `git pull` or local code change:**
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart moblab.service
+```
+
+**View live logs:**
+
+```bash
+journalctl -u moblab.service -f
+```
+
+---
+
+## Folder Notes
+
+| Folder | Description |
+|---|---|
+| `obsolete/` | First server-client version (first half of 2025) and João's client version (`old_client/`, second half of 2025) |
+| `matlab/` | Initial model studies in MATLAB (outdated) |
+
