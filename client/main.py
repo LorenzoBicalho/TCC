@@ -183,11 +183,11 @@ if __name__ == "__main__":
                 classification, _, _, _ = neurofuzzy_service.calys(data, params)
                 driver_class = max(1, min(3, round(classification)))
                 if driver_class == 1:
-                    print('Classificação: Agressivo (' + classification + ')')
+                    print(f'Classificação: Agressivo ({classification})')
                 if driver_class == 2:
-                    print('Classificação: Normal (' + classification + ')')
+                    print(f'Classificação: Normal ({classification})')
                 if driver_class == 3:
-                    print('Classificação: Calma (' + classification + ')')
+                    print(f'Classificação: Calma ({classification})')
 
                 if driver_class == 3: hardware.aggressive_buzz()
 
