@@ -22,17 +22,29 @@ def calys(x, params):
     s = np.array(get_field(params, "s"), dtype=float)
     q = np.array(get_field(params, "q"), dtype=float)
 
+    # TO-DO normalizar os dados.
+
     rule_outputs = q + np.dot(x, p)
+    print(f'rule_outputs: {rule_outputs}')
 
     diff = x[:, None] - c
+    print(f'diff: {diff}')
+
     exponent = -0.5 * (diff ** 2) / (s ** 2)
+    print(f'exponent: {exponent}')
 
     rule_weights = np.exp(exponent).prod(axis=0)
+    print(f'rule_weights: {rule_weights}')
 
     numerator = np.sum(rule_weights * rule_outputs)
+    print(f'numerator : {numerator}')
+
     denominator = np.sum(rule_weights)
+    print(f'denominator: {denominator}')
 
     output = numerator / (denominator + EPSILON)
+    print(f'output: {output}')
+
 
     return output, rule_weights, rule_outputs, denominator
 
@@ -88,6 +100,7 @@ def get_training_data():
 
     num_clusters = config.NUM_CLUSTERS
 
+    # TO-DO normalizar os dados hardcoded
     scaler_minmax = MinMaxScaler()
     normalized_inputs = scaler_minmax.fit_transform(X)
 
