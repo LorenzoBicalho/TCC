@@ -180,8 +180,14 @@ if __name__ == "__main__":
                 data = utils.format_data(state)
                 print(f"Reading complete. Data: {data}")
                 # if data.get("speed", 0) != 0:
-                classification = neurofuzzy_service.calys(data, params)
+                classification, _, _, _ = neurofuzzy_service.calys(data, params)
                 driver_class = max(1, min(3, round(classification)))
+                if driver_class == 1:
+                    print('Classificação: Agressivo (' + classification + ')')
+                if driver_class == 2:
+                    print('Classificação: Normal (' + classification + ')')
+                if driver_class == 3:
+                    print('Classificação: Calma (' + classification + ')')
 
                 if driver_class == 3: hardware.aggressive_buzz()
 
