@@ -7,22 +7,20 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.model_selection import StratifiedShuffleSplit
 
 from db.repositories import featuresRepository, modelRepository
-from utils.utils import EPSILON, get_field
+from utils.utils import EPSILON, get_field, dict_to_feature_vector
 import config
 
 def calys(x, params):
     """
     Forward pass of the Sugeno neuro-fuzzy model.
     """
+    if isinstance(x, dict):
+        x = dict_to_feature_vector(x)
 
     c = np.array(get_field(params, "c"), dtype=float)
     p = np.array(get_field(params, "p"), dtype=float)
     s = np.array(get_field(params, "s"), dtype=float)
     q = np.array(get_field(params, "q"), dtype=float)
-    print(c)
-    print(p)
-    print(s)
-    print(q)
 
     rule_outputs = q + np.dot(x, p)
 

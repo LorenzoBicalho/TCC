@@ -1,4 +1,14 @@
+import numpy as np
+
 EPSILON = 1e-8
+
+FEATURE_ORDER = [
+    "speed",
+    "acc_long",
+    "acc_lat",
+    "engine_speed",
+    "throttle_position",
+]
 
 def format_data(state):
     accel_x_avg = sum(state.features['accel_x']) / (len(state.features['accel_x']) + EPSILON)
@@ -23,3 +33,9 @@ def get_field(obj, name):
     if isinstance(obj, dict):
         return obj.get(name)
     return None
+
+def dict_to_feature_vector(data):
+    return np.array(
+        [float(data[name]) for name in FEATURE_ORDER],
+        dtype=float
+    )
