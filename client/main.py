@@ -111,20 +111,22 @@ if __name__ == "__main__":
             response_data = client_info.json()
             device_id = response_data.get('device_identifier')
 
-            model = modelRepository.get_global_model()
-            model_version = model.version if model is not None else 0
+            local_model = modelRepository.get_global_model()
+            model_version = local_model.version if local_model is not None else 0
 
-            latest_model = api_routes.get_latest_model(device_id, model_version)
-            latest_model_data = latest_model.json()
+            response = api_routes.get_latest_model(device_id, model_version)
+            response_data = response.json()
 
-            params = latest_model_data.get('model')
-            current_version = latest_model_data.get('current_version')
-            latest_model_has_update = latest_model_data.get('has_update')
+            global_model = response_data.get('model')
+            current_version = response_data.get('current_version')
+            latest_model_has_update = response_data.get('has_update')
+
+            params = modelRepository.get_global_params(global_model)  
 
             if  latest_model_has_update == 1:
                 print("Global Model has update")
                 modelRepository.delete_all_models()
-                modelRepository.insert_global_model(params, current_version)
+                modelRepository.insert_global_model(global_model, current_version)
                 print("Local Model updated")
         else:
             print("Initiating offline mode.")

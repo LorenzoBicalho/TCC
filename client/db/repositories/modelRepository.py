@@ -44,17 +44,23 @@ def get_global_model():
             .first()
         )
 
+def flatten_2d(matrix):
+    if matrix is None:
+        return None
+    return [item for row in matrix for item in row]
+
 def get_global_params(model):
     if model is None:
         return None
+
     return {
-        "c": model.c,
-        "p": model.p,
-        "s": model.s,
-        "q": model.q,
-        "cluster_aggressive": model.cluster_aggressive,
-        "cluster_normal": model.cluster_normal,
-        "cluster_calm": model.cluster_calm,
+        "c": flatten_2d(model.get('c')),  # [25]
+        "p": flatten_2d(model.get('p')),  # [25]
+        "s": flatten_2d(model.get('s')),  # [25]
+        "q": list(model.get('q')),   # [5]
+        "cluster_aggressive": list(model.get('cluster_aggressive')),  # [5]
+        "cluster_normal": list(model.get('cluster_normal')),  # [5]
+        "cluster_calm": list(model.get('cluster_calm')),  # [5]
     }
 
 def delete_all_models() -> None:
