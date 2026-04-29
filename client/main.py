@@ -179,20 +179,20 @@ if __name__ == "__main__":
                 state.new_data.clear()
                 data = utils.format_data(state)
                 print(f"Reading complete. Data: {data}")
-                # if data.get("speed", 0) != 0:
-                classification, _, _, _ = neurofuzzy_service.calys(data, params)
-                driver_class = max(1, min(3, round(classification)))
-                if driver_class == 1:
-                    print(f'Classificação: Agressivo ({classification})')
-                if driver_class == 2:
-                    print(f'Classificação: Normal ({classification})')
-                if driver_class == 3:
-                    print(f'Classificação: Calma ({classification})')
+                if data.get("speed", 0) != 0:
+                    classification, _, _, _ = neurofuzzy_service.calys(data, params)
+                    driver_class = max(1, min(3, round(classification)))
+                    if driver_class == 3:
+                        print(f'Classificação: Agressivo ({classification})')
+                    if driver_class == 2:
+                        print(f'Classificação: Normal ({classification})')
+                    if driver_class == 1:
+                        print(f'Classificação: Calma ({classification})')
 
-                if driver_class == 3: hardware.aggressive_buzz()
+                    if driver_class == 3: hardware.aggressive_buzz()
 
-                # featuresRepository.insert_data(data, session_id)
-                print(f"Data inserted in local database")
+                    featuresRepository.insert_data(data, session_id)
+                    print(f"Data inserted in local database")
     except SerialException as e:
         print(f"Erro na conexão serial: {e}")
     except KeyboardInterrupt:

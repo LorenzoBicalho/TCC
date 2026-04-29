@@ -30,9 +30,9 @@ def accelerometer_thread(stop_thread, state):
             init()
             time.sleep(2)
 
-        while not stop_thread.is_set():
+        print("Reading MPU-6050 \n")
 
-            print("Reading MPU-6050")
+        while not stop_thread.is_set():
 
             if sensor:
 
