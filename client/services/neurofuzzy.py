@@ -15,11 +15,10 @@ def calys(x, params):
     Forward pass of the Sugeno neuro-fuzzy model.
     """
 
-    c = params["c"]
-    s = params["s"]
-    p = params["p"]
-    q = params["q"]
-
+    c = params.get('c')
+    s = params.get('s')
+    p = params.get('p')
+    q = params.get('q')
     rule_outputs = q + np.dot(x, p)
 
     diff = x[:, None] - c

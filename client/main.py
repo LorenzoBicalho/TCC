@@ -177,14 +177,14 @@ if __name__ == "__main__":
                 state.new_data.clear()
                 data = utils.format_data(state)
                 print(f"Reading complete. Data: {data}")
-                if data.get("speed", 0) != 0:
-                    classification = neurofuzzy_service.calys(data, params)
-                    driver_class = max(1, min(3, round(classification)))
+                # if data.get("speed", 0) != 0:
+                classification = neurofuzzy_service.calys(data, params)
+                driver_class = max(1, min(3, round(classification)))
 
-                    if driver_class == 3: hardware.aggressive_buzz()
+                if driver_class == 3: hardware.aggressive_buzz()
 
-                    featuresRepository.insert_data(data, session_id)
-                    print(f"Data inserted in local database")
+                # featuresRepository.insert_data(data, session_id)
+                print(f"Data inserted in local database")
     except SerialException as e:
         print(f"Erro na conexão serial: {e}")
     except KeyboardInterrupt:
