@@ -16,3 +16,10 @@ def format_data(state):
     }
 
     return data
+
+def get_field(obj, name):
+    if hasattr(obj, name):
+        return getattr(obj, name)
+    if isinstance(obj, dict):
+        return obj.get(name)
+    return None
