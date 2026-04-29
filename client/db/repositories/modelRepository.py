@@ -45,19 +45,14 @@ def get_global_model():
             .first()
         )
 
-def flatten_2d(matrix):
-    if matrix is None:
-        return None
-    return [item for row in matrix for item in row]
-
 def get_global_params(model):
     if model is None:
         return None
 
     return {
-        "c": flatten_2d(utils.get_field(model, "c")),
-        "p": flatten_2d(utils.get_field(model, "p")),
-        "s": flatten_2d(utils.get_field(model, "s")),
+        "c": utils.get_field(model, "c"),
+        "p": utils.get_field(model, "p"),
+        "s": utils.get_field(model, "s"),
         "q": utils.get_field(model, "q"),
         "cluster_aggressive": utils.get_field(model, "cluster_aggressive"),
         "cluster_normal": utils.get_field(model, "cluster_normal"),
