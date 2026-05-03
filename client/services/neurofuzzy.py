@@ -42,7 +42,6 @@ def normalize_matrix(X):
             f"Expected X to be 1D or 2D, got {X.ndim}D input."
         )
 
-    print(f'X : {X}')
     denom = (config.MAX_VALUES - config.MIN_VALUES)
     if denom.shape[0] != expected_features:
         raise ValueError(
@@ -143,7 +142,11 @@ def get_training_data():
 
     y_class = np.zeros(num_samples)
 
-    current_model = modelRepository.get_global_model()
+    current_model_record = modelRepository.get_global_model()
+    current_model = modelRepository.get_global_params(current_model_record)
+    if current_model is None:
+        raise RuntimeError("No global model available for training.")
+    model_version = get_field(current_model_record, "version")
 
     for i in range(num_samples):
         y_raw, *_ = calys(normalized_inputs[i], current_model)
@@ -170,7 +173,7 @@ def get_training_data():
     Y_train = outputs[train_idx]
     Y_val = outputs[val_idx]
 
-    return X_train, X_val, Y_train, Y_val, current_model['version']
+    return X_train, X_val, Y_train, Y_val, model_version
 
 
 def evaluate_model(params, X_val, Y_val):
