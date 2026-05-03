@@ -2,17 +2,18 @@ from db.schemas import Features
 from db.session import SessionLocal, ensure_schema
 from db.validators import FeaturePayload
 import uuid
+from utils import utils
 
 ensure_schema()
 
 def insert_data(payload: FeaturePayload, session_id: uuid) -> None:
     with SessionLocal() as db:
         record = Features(
-            speed=payload.speed,
-            acc_long=payload.acc_long,
-            acc_lat=payload.acc_lat,
-            engine_speed=payload.engine_speed,
-            throttle_position=payload.throttle_position,
+            speed= utils.get_field(payload,'speed'),
+            acc_long= utils.get_field(payload,'acc_long'),
+            acc_lat= utils.get_field(payload,'acc_lat'),
+            engine_speed= utils.get_field(payload,'engine_speed'),
+            throttle_position= utils.get_field(payload,'throttle_position'),
             session_id=session_id
         )
         db.add(record)

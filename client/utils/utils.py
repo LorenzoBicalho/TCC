@@ -6,9 +6,12 @@ EPSILON = 1e-8
 def format_data(state):
     accel_x_avg = sum(state.features['accel_x']) / (len(state.features['accel_x']) + EPSILON)
     accel_y_avg = sum(state.features['accel_y']) / (len(state.features['accel_y']) + EPSILON)
-    rpm = state.features.get('rpm', 300)
-    speed = state.features.get('speed', 10)
-    pos_pedal = state.features.get('pos_pedal', 16)
+    # rpm = state.features.get('rpm', 300)
+    # speed = state.features.get('speed', 10)
+    # pos_pedal = state.features.get('pos_pedal', 16)
+    rpm = 300
+    speed = 10
+    pos_pedal = 16
 
     data = {
         "speed": speed,
