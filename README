@@ -194,7 +194,7 @@ python3 client.py \
 
 ## Raspberry Pi Setup
 
-**Known IPs:** `192.168.0.26` · `192.168.178.158`
+**Known IPs:** `192.168.0.26` · `192.168.178.158` · `192.168.178.211`
 
 ### SSH Access
 

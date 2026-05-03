@@ -1,14 +1,7 @@
 import numpy as np
+import config
 
 EPSILON = 1e-8
-
-FEATURE_ORDER = [
-    "speed",
-    "acc_long",
-    "acc_lat",
-    "engine_speed",
-    "throttle_position",
-]
 
 def format_data(state):
     accel_x_avg = sum(state.features['accel_x']) / (len(state.features['accel_x']) + EPSILON)
@@ -35,7 +28,26 @@ def get_field(obj, name):
     return None
 
 def dict_to_feature_vector(data):
-    return np.array(
-        [float(data[name]) for name in FEATURE_ORDER],
-        dtype=float
-    )
+    if not isinstance(data, dict):
+        raise TypeError(
+            f"Expected 'data' to be dict, got {type(data).__name__}."
+        )
+
+    missing_keys = [name for name in config.FEATURE_ORDER if name not in data]
+    if missing_keys:
+        missing = ", ".join(missing_keys)
+        raise ValueError(
+            f"Missing required feature keys: {missing}."
+        )
+
+    try:
+        vector = np.array(
+            [float(data[name]) for name in config.FEATURE_ORDER],
+            dtype=float
+        )
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "All feature values must be numeric and convertible to float."
+        ) from exc
+
+    return vector

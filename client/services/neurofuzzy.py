@@ -10,19 +10,60 @@ from db.repositories import featuresRepository, modelRepository
 from utils.utils import EPSILON, get_field, dict_to_feature_vector
 import config
 
+
+def normalize_matrix(X):
+    if isinstance(X, dict):
+        X = dict_to_feature_vector(X)
+
+    if not isinstance(X, np.ndarray):
+        raise TypeError(
+            f"Expected X to be a numpy.ndarray or dict, got {type(X).__name__}."
+        )
+
+    try:
+        X = X.astype(float, copy=False)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("X must contain numeric values convertible to float.") from exc
+
+    expected_features = len(config.FEATURE_ORDER)
+    if X.ndim == 1:
+        if X.shape[0] != expected_features:
+            raise ValueError(
+                f"Expected X to have {expected_features} features, got {X.shape[0]}."
+            )
+    elif X.ndim == 2:
+        if X.shape[1] != expected_features:
+            raise ValueError(
+                "Expected X to have shape (n_samples, "
+                f"{expected_features}), got {X.shape}."
+            )
+    else:
+        raise ValueError(
+            f"Expected X to be 1D or 2D, got {X.ndim}D input."
+        )
+
+    print(f'X : {X}')
+    denom = (config.MAX_VALUES - config.MIN_VALUES)
+    if denom.shape[0] != expected_features:
+        raise ValueError(
+            "Feature configuration mismatch: MIN_VALUES/MAX_VALUES length must "
+            f"match FEATURE_ORDER length ({expected_features})."
+        )
+    denom[denom == 0] = 1.0
+
+    X_norm = (X - config.MIN_VALUES) / denom
+    X_norm = np.clip(X_norm, 0.0, 1.0)
+
+    return X_norm
+
 def calys(x, params):
     """
     Forward pass of the Sugeno neuro-fuzzy model.
     """
-    if isinstance(x, dict):
-        x = dict_to_feature_vector(x)
-
     c = np.array(get_field(params, "c"), dtype=float)
     p = np.array(get_field(params, "p"), dtype=float)
     s = np.array(get_field(params, "s"), dtype=float)
     q = np.array(get_field(params, "q"), dtype=float)
-
-    # TO-DO normalizar os dados.
 
     rule_outputs = q + np.dot(x, p)
     print(f'rule_outputs: {rule_outputs}')
@@ -88,21 +129,13 @@ def get_training_data():
     """
     data = featuresRepository.get_data()
 
-    features = [
-        "speed",
-        "acc_long",
-        "acc_lat",
-        "engine_speed",
-        "throttle_position",
-    ]
+    features = config.FEATURE_ORDER
 
-    X = data[features].values
+    X = data[features].values.astype(float)
 
     num_clusters = config.NUM_CLUSTERS
 
-    # TO-DO normalizar os dados hardcoded
-    scaler_minmax = MinMaxScaler()
-    normalized_inputs = scaler_minmax.fit_transform(X)
+    normalized_inputs = normalize_matrix(X)
 
     num_samples = len(X)
 
@@ -115,15 +148,12 @@ def get_training_data():
 
         y_rounded = np.round(y_raw)
 
-        # Ensure class is within the valid range {1, 2, 3}
         y_class[i] = max(1, min(3, y_rounded))
 
     scaler_z = StandardScaler()
     X_norm = scaler_z.fit_transform(X)
-
     kmeans = KMeans(n_clusters=num_clusters, n_init=10, random_state=42)
     cluster_idx = kmeans.fit_predict(X_norm)
-
     cluster_to_class = map_clusters_to_classes(y_class, cluster_idx)
 
     outputs = np.vectorize(cluster_to_class.get)(cluster_idx)
@@ -178,8 +208,8 @@ def train_model(alpha=0.001, max_epochs=10):
 
     num_samples, num_features = X_train.shape
 
-    xmin = np.min(X_train, axis=0)
-    xmax = np.max(X_train, axis=0)
+    xmin = np.zeros(num_features)
+    xmax = np.ones(num_features)
 
     c = np.random.uniform(xmin[:, None], xmax[:, None], size=(num_features, num_rules))
     s = np.random.rand(num_features, num_rules)
