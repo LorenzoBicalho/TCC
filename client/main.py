@@ -34,7 +34,7 @@ def train_thread(stop_event, device_id):
             data_count = featuresRepository.get_data_count()
             if  data_count >= 300:
                 if hardware.check_internet_connection():
-                    print(f"Trainini new model with {data_count} samples")
+                    print(f"Training new model with {data_count} samples")
                     trained_params, metrics, num_samples, version, labels_by_row_id = (
                         neurofuzzy_service.train_model()
                     )

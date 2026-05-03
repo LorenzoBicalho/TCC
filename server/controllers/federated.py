@@ -51,7 +51,9 @@ def submit_client_weights(db: Session, payload: SubmitWeightsRequest) -> SubmitW
             latest_model=federated_service.model_to_weight_payload(current) if current else None,
         )
 
-    n_existing = federated_service.count_submissions_for_client_version(db, client.id, payload.version)
+    n_existing = client_service.count_submissions_for_client_version(
+        db, client.id, payload.version
+    )
     if n_existing >= settings.max_submissions_per_client_per_version:
         return SubmitWeightsResponse(
             status="ignored",
@@ -60,7 +62,7 @@ def submit_client_weights(db: Session, payload: SubmitWeightsRequest) -> SubmitW
             latest_model=None,
         )
 
-    federated_service.insert_client_submission(db, client, payload)
+    client_service.insert_client_submission(db, client, payload)
 
     return SubmitWeightsResponse(
         status="success",
