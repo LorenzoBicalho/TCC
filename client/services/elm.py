@@ -57,14 +57,12 @@ def send_cmd(serial, cmd: str, timeout: float = 3.0) -> List[str]:
         if chunk:
             buffer += chunk
 
-            # Detect ELM327 prompt
-
             if b">" in buffer:
                 break
 
-        if time.time() - start_time > timeout:
-            print(f"Timeout waiting response for {cmd}")
-            break
+        # if time.time() - start_time > timeout:
+        #     print(f"Timeout waiting response for {cmd}")
+        #     break
 
         time.sleep(0.01)
 
@@ -105,21 +103,13 @@ def get_all_supported_pids(serial) -> List[str]:
     return supported_pids
 
 def read_thread(stop_thread, serial, state) -> None:
-    """
-    Continuous reading loop.
-
-    This function is intended to run in a dedicated thread.
-    """
 
     global supported_pids
 
     while not stop_thread.is_set():
-        print(f"Reading OBD2")
         with state.lock:
             state.features["speed"] = read_pid(serial, "010D") if "010D" in supported_pids else 0.0
-
             state.features["rpm"] = read_pid(serial, "010C") if "010C" in supported_pids else 0.0
-
             state.features["pos_pedal"] = read_pid(serial, "0111") if "0111" in supported_pids else 0.0
             
         state.new_data.set()  # signal that fresh data is available
