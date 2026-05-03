@@ -15,9 +15,11 @@ def _to_json_compatible(value):
         return value.isoformat()
     return value
 
-def _serialize_telemetry_row(row):
+def _serialize_telemetry_row(row, labels_by_row_id: dict[int, int] | None):
+    rid = getattr(row, "id", None)
+    cls = labels_by_row_id.get(int(rid)) if labels_by_row_id is not None and rid is not None else None
     return {
-        "local_id": _to_json_compatible(getattr(row, "id", None)),
+        "local_id": _to_json_compatible(rid),
         "created_at": _to_json_compatible(getattr(row, "created_at", None)),
         "speed": _to_json_compatible(getattr(row, "speed", None)),
         "acc_long": _to_json_compatible(getattr(row, "acc_long", None)),
@@ -25,6 +27,7 @@ def _serialize_telemetry_row(row):
         "engine_speed": _to_json_compatible(getattr(row, "engine_speed", None)),
         "throttle_position": _to_json_compatible(getattr(row, "throttle_position", None)),
         "session_id": _to_json_compatible(getattr(row, "session_id", None)),
+        "classification": _to_json_compatible(cls),
     }
 
 
@@ -67,8 +70,8 @@ def send_local_weights(device_id, trained_params, metrics, num_samples, version)
     print(response.json())
     return response
 
-def send_telemetry(device_id, version, rows):
-    telemetry = [_serialize_telemetry_row(row) for row in rows]
+def send_telemetry(device_id, version, rows, labels_by_row_id: dict[int, int] | None = None):
+    telemetry = [_serialize_telemetry_row(row, labels_by_row_id) for row in rows]
 
     data = {
         "device_identifier": device_id,

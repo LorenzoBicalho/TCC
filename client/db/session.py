@@ -17,6 +17,7 @@ SessionLocal = sessionmaker(
     bind=engine,
 )
 
+
 def ensure_schema() -> None:
     """Create tables if missing."""
     from db.schemas import Base

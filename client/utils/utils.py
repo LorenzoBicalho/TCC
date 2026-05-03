@@ -4,21 +4,26 @@ import config
 EPSILON = 1e-8
 
 def format_data(state):
-    accel_x_avg = sum(state.features['accel_x']) / (len(state.features['accel_x']) + EPSILON)
-    accel_y_avg = sum(state.features['accel_y']) / (len(state.features['accel_y']) + EPSILON)
-    rpm = state.features.get('rpm', 300)
-    speed = state.features.get('speed', 10)
-    pos_pedal = state.features.get('pos_pedal', 16)
+    with state.lock:
+        ax = state.features.get("accel_x") or []
+        ay = state.features.get("accel_y") or []
+        accel_x_avg = sum(ax) / (len(ax) + EPSILON)
+        accel_y_avg = sum(ay) / (len(ay) + EPSILON)
+        rpm = state.features.get("rpm", 300)
+        speed = state.features.get("speed", 10)
+        pos_pedal = state.features.get("pos_pedal", 16)
+        for key in ("accel_x", "accel_y", "gyro_x", "gyro_y"):
+            lst = state.features.get(key)
+            if lst is not None:
+                lst.clear()
 
-    data = {
+    return {
         "speed": speed,
         "acc_long": accel_x_avg,
         "acc_lat": accel_y_avg,
         "engine_speed": rpm,
-        "throttle_position": pos_pedal
+        "throttle_position": pos_pedal,
     }
-
-    return data
 
 def get_field(obj, name):
     if hasattr(obj, name):

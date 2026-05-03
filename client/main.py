@@ -17,8 +17,6 @@ from db.repositories import modelRepository
 PORTA_SERIAL = SERIAL_PORT
 BAUDRATE = 38400
 
-supported_pids = []
-
 stop_thread = threading.Event()
 class State:
     def __init__(self):
@@ -37,14 +35,30 @@ def train_thread(stop_event, device_id):
             if  data_count >= 300:
                 if hardware.check_internet_connection():
                     print(f"Trainini new model with {data_count} samples")
-                    trained_params, metrics, num_samples, version = neurofuzzy_service.train_model()
-                    rows = featuresRepository.get_data()
+                    trained_params, metrics, num_samples, version, labels_by_row_id = (
+                        neurofuzzy_service.train_model()
+                    )
+                    labeled_ids = list(labels_by_row_id.keys())
+                    labeled_set = set(labeled_ids)
+                    rows = [
+                        r
+                        for r in featuresRepository.get_data()
+                        if getattr(r, "id", None) in labeled_set
+                    ]
 
                     weights_sent = False
                     try:
                         print(f"Sending weights to the server")
-                        response = api_routes.send_local_weights(device_id, trained_params, metrics, num_samples, version)
-                        weights_sent = response.status_code == 200
+                        response = api_routes.send_local_weights(
+                            device_id, trained_params, metrics, num_samples, version
+                        )
+                        if response.status_code == 200:
+                            body = response.json()
+                            weights_sent = body.get("status") == "success"
+                            if not weights_sent:
+                                print(
+                                    f"Weights not stored ({body.get('status')}): {body.get('detail')}"
+                                )
                     except Exception as e:
                         print(f"Weight send failed: {e}")
 
@@ -52,15 +66,17 @@ def train_thread(stop_event, device_id):
                         print(f"Sent weights")
                         try:
                             print(f"Sending telemetry data to the server")
-                            api_routes.send_telemetry(device_id, version, rows)
+                            api_routes.send_telemetry(
+                                device_id, version, rows, labels_by_row_id
+                            )
                         except Exception as e:
                             print(f"Telemetry send failed, keeping data: {e}")
                             # don't delete — will retry next cycle
                         else:
                             print(f"Telemetry data sent")
-                            print(f"Deleting all local telemetry data")
-                            featuresRepository.delete_all_data()
-                            print(f"Local telemetry data deleted")
+                            print(f"Removing uploaded sample rows from local DB")
+                            featuresRepository.delete_rows_by_ids(labeled_ids)
+                            print(f"Uploaded telemetry rows deleted locally")
                 else:
                     print("Ready to train new model, but internet connection needed")
 
@@ -121,13 +137,23 @@ if __name__ == "__main__":
             current_version = response_data.get('current_version')
             latest_model_has_update = response_data.get('has_update')
 
-            params = modelRepository.get_global_params(global_model)  
-
-            if  latest_model_has_update == 1:
+            if latest_model_has_update:
                 print("Global Model has update")
+                if global_model is None:
+                    raise RuntimeError(
+                        "Server reported a model update but sent no model payload."
+                    )
                 modelRepository.delete_all_models()
                 modelRepository.insert_global_model(global_model, current_version)
                 print("Local Model updated")
+
+            local_model = modelRepository.get_global_model()
+            if local_model is None:
+                raise RuntimeError(
+                    "No global model on device after sync. "
+                    "Publish a model on the server or install weights locally before running online."
+                )
+            params = modelRepository.get_global_params(local_model)
         else:
             print("Initiating offline mode.")
             local_model = modelRepository.get_global_model()
@@ -142,13 +168,13 @@ if __name__ == "__main__":
 
             session_id = str(uuid.uuid4())
 
-            # train_thread_handle = threading.Thread(
-            #     name="train_model",
-            #     target=train_thread,
-            #     args=(stop_thread, device_id),
-            #     daemon=True
-            # )
-            # train_thread_handle.start()
+            train_thread_handle = threading.Thread(
+                name="train_model",
+                target=train_thread,
+                args=(stop_thread, device_id),
+                daemon=True
+            )
+            train_thread_handle.start()
 
             elm_service.init_elm(serial_conn)
 
@@ -156,7 +182,7 @@ if __name__ == "__main__":
 
             elm_service.get_all_supported_pids(serial_conn)
 
-            print(f"Supported PIDs in mode 01: {supported_pids}")
+            print(f"Supported PIDs in mode 01: {elm_service.supported_pids}")
 
             read_elm_thread = threading.Thread(
                 name="read_elm",

@@ -1,5 +1,4 @@
 import time
-import sys
 from mpu6050 import mpu6050
 
 sensor = None
@@ -61,7 +60,6 @@ def accelerometer_thread(stop_thread, state):
 
     except Exception as e:
         print("Erro durante leitura do MPU-6050:", e)
-        sys.exit(1)
+        print("Continuando sem dados do acelerômetro (zeros).")
 
 
-init()

@@ -4,7 +4,7 @@ from config import SERVER_URL
 def get(endpoint):
     url = f"{SERVER_URL}{endpoint}"
 
-    response = requests.get(url)
+    response = requests.get(url, timeout=10)
 
     response.raise_for_status()
 

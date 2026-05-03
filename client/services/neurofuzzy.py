@@ -117,6 +117,9 @@ def map_clusters_to_classes(y_class, cluster_idx):
 def get_training_data():
     """
     Prepare dataset for training and validation.
+
+    Returns labels_by_row_id aligned with Features.id so telemetry can send the same
+    targets used for local training (global model pseudo-labels + KMeans mapping).
     """
     data = featuresRepository.get_data()
 
@@ -161,7 +164,27 @@ def get_training_data():
     cluster_idx = kmeans.fit_predict(X_norm)
     cluster_to_class = map_clusters_to_classes(y_class, cluster_idx)
 
-    outputs = np.vectorize(cluster_to_class.get)(cluster_idx)
+    raw_out = np.vectorize(lambda k: cluster_to_class.get(k, -1))(cluster_idx)
+    # Invalid cluster→class mappings are rare; use class 2 so SGD and telemetry stay aligned.
+    outputs = np.asarray(
+        [int(v) if int(v) in (1, 2, 3) else 2 for v in raw_out],
+        dtype=float,
+    )
+
+    labels_by_row_id: dict[int, int] = {}
+    for i, record in enumerate(data):
+        rid = get_field(record, "id")
+        if rid is None:
+            continue
+        labels_by_row_id[int(rid)] = int(outputs[i])
+
+    class_centroids = {}
+    for class_label in (1, 2, 3):
+        class_mask = outputs == class_label
+        if np.any(class_mask):
+            class_centroids[class_label] = normalized_inputs[class_mask].mean(axis=0)
+        else:
+            class_centroids[class_label] = np.zeros(normalized_inputs.shape[1], dtype=float)
 
     sss = StratifiedShuffleSplit(n_splits=1, test_size=0.3, random_state=42)
 
@@ -173,7 +196,15 @@ def get_training_data():
     Y_train = outputs[train_idx]
     Y_val = outputs[val_idx]
 
-    return X_train, X_val, Y_train, Y_val, model_version
+    return (
+        X_train,
+        X_val,
+        Y_train,
+        Y_val,
+        model_version,
+        class_centroids,
+        labels_by_row_id,
+    )
 
 
 def evaluate_model(params, X_val, Y_val):
@@ -209,7 +240,15 @@ def train_model(alpha=0.001, max_epochs=10):
     """
     num_rules = config.NUM_RULES
 
-    X_train, X_val, Y_train, Y_val, version = get_training_data()
+    (
+        X_train,
+        X_val,
+        Y_train,
+        Y_val,
+        version,
+        class_centroids,
+        labels_by_row_id,
+    ) = get_training_data()
 
     num_samples, num_features = X_train.shape
 
@@ -261,8 +300,16 @@ def train_model(alpha=0.001, max_epochs=10):
 
         print(f"Epoch {epoch + 1}, MSE: {mse:.6f}")
 
-    trained_params = {"c": c, "s": s, "p": p, "q": q}
+    trained_params = {
+        "c": c,
+        "s": s,
+        "p": p,
+        "q": q,
+        "cluster_calm": class_centroids[1],
+        "cluster_normal": class_centroids[2],
+        "cluster_aggressive": class_centroids[3],
+    }
 
     metrics = evaluate_model(trained_params, X_val, Y_val)
 
-    return trained_params, metrics, num_samples, version
+    return trained_params, metrics, num_samples, version, labels_by_row_id

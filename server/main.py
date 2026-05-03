@@ -22,7 +22,7 @@ from db.validators import (
     SubmitWeightsResponse,
     TelemetryRequest
 )
-from db.session import ensure_schema, get_db
+from db.session import SessionLocal, ensure_schema, get_db
 
 import logging
 import traceback
@@ -32,6 +32,17 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Federated Learning Server")
 ensure_schema()
 DbDependency = Annotated[Session, Depends(get_db)]
+
+
+def run_aggregation_background() -> None:
+    """Use a fresh DB session; the request-scoped session is closed before tasks run."""
+    db = SessionLocal()
+    try:
+        run_aggregation(db, bypass=False)
+    except Exception:
+        logger.exception("Background aggregation failed")
+    finally:
+        db.close()
 
 
 @app.post("/clients", response_model=ClientResponse)
@@ -51,7 +62,7 @@ def latest_model_endpoint(payload: LatestModelRequest, db: DbDependency):
 @app.post("/weights", response_model=SubmitWeightsResponse)
 def submit_weights_endpoint(payload: SubmitWeightsRequest, db: DbDependency, background_tasks: BackgroundTasks):
     try:
-        background_tasks.add_task(run_aggregation, db)
+        background_tasks.add_task(run_aggregation_background)
         return submit_client_weights(db, payload)
 
     except ValueError as exc:
@@ -60,11 +71,12 @@ def submit_weights_endpoint(payload: SubmitWeightsRequest, db: DbDependency, bac
 
 @app.post("/federated/aggregate", response_model=AggregateResponse)
 def aggregate_endpoint(db: DbDependency):
-    new_version = run_aggregation(db)
+    # Operators may aggregate pending submissions without waiting for client-ratio gates.
+    new_version = run_aggregation(db, bypass=True)
     if new_version is None:
         return AggregateResponse(
             status="skipped",
-            detail="No eligible submissions to aggregate.",
+            detail="No unused submissions for the current global model version.",
             new_version=None,
         )
     return AggregateResponse(status="success", detail="Aggregation completed.", new_version=new_version)

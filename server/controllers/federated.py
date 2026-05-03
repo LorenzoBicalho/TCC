@@ -69,14 +69,14 @@ def submit_client_weights(db: Session, payload: SubmitWeightsRequest) -> SubmitW
         latest_model=None,
     )
 
-def run_aggregation(db: Session, bypass = False) -> int | None:
+def run_aggregation(db: Session, bypass: bool = False) -> int | None:
+    """Run global aggregation. When bypass is False, gated by check_aggregation_condition."""
     current_model = federated_service.get_current_global_model(db)
-    current_version = current_model.version if current_model else 1
+    current_version = current_model.version if current_model else 0
 
     if not bypass:
         aggregation_available = federated_service.check_aggregation_condition(db, current_version)
         if not aggregation_available:
-            return False
+            return None
 
-    federated_service.run_aggregation(db, current_model)
-    return True
+    return federated_service.run_aggregation(db, current_model)

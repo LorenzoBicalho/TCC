@@ -112,7 +112,7 @@ class Telemetry(Base):
     throttle_position = Column(Float, nullable=True)
 
     version        = Column(Integer, nullable=False)
-    classification = Column(Integer, nullable=False)
+    classification = Column(Integer, nullable=True)
 
     client = relationship("Client", back_populates="telemetry")
 
