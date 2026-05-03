@@ -60,9 +60,9 @@ def send_cmd(serial, cmd: str, timeout: float = 3.0) -> List[str]:
             if b">" in buffer:
                 break
 
-        # if time.time() - start_time > timeout:
-        #     print(f"Timeout waiting response for {cmd}")
-        #     break
+        if time.time() - start_time > timeout:
+            print(f"Timeout waiting response for {cmd}")
+            break
 
         time.sleep(0.01)
 
