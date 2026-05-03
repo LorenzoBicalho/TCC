@@ -123,7 +123,17 @@ def get_training_data():
 
     features = config.FEATURE_ORDER
 
-    X = data[features].values.astype(float)
+    # Repository currently returns ORM objects; keep compatibility if this becomes a DataFrame.
+    if hasattr(data, "__getitem__") and hasattr(data, "values") and not isinstance(data, list):
+        X = data[features].values.astype(float)
+    else:
+        X = np.array(
+            [
+                [float(get_field(record, feature)) for feature in features]
+                for record in data
+            ],
+            dtype=float
+        )
 
     num_clusters = config.NUM_CLUSTERS
 
