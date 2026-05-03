@@ -42,7 +42,7 @@ def train_thread(stop_event, device_id):
 
                     weights_sent = False
                     try:
-                        print(f"Sent weights")
+                        print(f"Sending weights to the server")
                         response = api_routes.send_local_weights(device_id, trained_params, metrics, num_samples, version)
                         weights_sent = response.status_code == 200
                     except Exception as e:
