@@ -142,13 +142,13 @@ if __name__ == "__main__":
 
             session_id = str(uuid.uuid4())
 
-            train_thread_handle = threading.Thread(
-                name="train_model",
-                target=train_thread,
-                args=(stop_thread, device_id),
-                daemon=True
-            )
-            train_thread_handle.start()
+            # train_thread_handle = threading.Thread(
+            #     name="train_model",
+            #     target=train_thread,
+            #     args=(stop_thread, device_id),
+            #     daemon=True
+            # )
+            # train_thread_handle.start()
 
             elm_service.init_elm(serial_conn)
 
