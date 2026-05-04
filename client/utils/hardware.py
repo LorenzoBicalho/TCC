@@ -57,9 +57,9 @@ def check_internet_connection(timeout: float = 2.0) -> bool:
 
 def _buzz(duration: float, repeat: int = 1, pause: float = 0.1, *, frequency_hz: float = 2000.0, duty_cycle: float = 50.0):
     if not GPIO_AVAILABLE:
-        print("buzz " * repeat)
+        print("GPIO NOT AVAILABLE ")
         return
-
+    print("Buzz" * repeat)
     try:
         pwm = GPIO.PWM(BUZZER_PIN, frequency_hz)
         try:
@@ -91,3 +91,8 @@ def require_internet_buzz(is_connected=False):
         else:
             break
     return is_connected
+
+
+if __name__ == "__main__":
+    _buzz(duration=0.2, repeat=5, pause=0.1)
+    
