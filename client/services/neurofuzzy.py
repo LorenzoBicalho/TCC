@@ -121,11 +121,17 @@ def get_training_data():
     Returns labels_by_row_id aligned with Features.id so telemetry can send the same
     targets used for local training (global model pseudo-labels + KMeans mapping).
     """
-    data = featuresRepository.get_data()
 
+    current_model_record = modelRepository.get_global_model()
+    current_model = modelRepository.get_global_params(current_model_record)
+    if current_model is None:
+        raise RuntimeError("No global model available for training.")
+
+    model_version = get_field(current_model_record, "version")
+    
+    data = featuresRepository.get_data()
     features = config.FEATURE_ORDER
 
-    # Repository currently returns ORM objects; keep compatibility if this becomes a DataFrame.
     if hasattr(data, "__getitem__") and hasattr(data, "values") and not isinstance(data, list):
         X = data[features].values.astype(float)
     else:
@@ -137,26 +143,23 @@ def get_training_data():
             dtype=float
         )
 
-    num_clusters = config.NUM_CLUSTERS
-
     normalized_inputs = normalize_matrix(X)
 
     num_samples = len(X)
-
     y_class = np.zeros(num_samples)
-
-    current_model_record = modelRepository.get_global_model()
-    current_model = modelRepository.get_global_params(current_model_record)
-    if current_model is None:
-        raise RuntimeError("No global model available for training.")
-    model_version = get_field(current_model_record, "version")
 
     for i in range(num_samples):
         y_raw, *_ = calys(normalized_inputs[i], current_model)
+        y_class[i] = max(1, min(3, round(y_raw)))
 
-        y_rounded = np.round(y_raw)
+    labels_by_row_id: dict[int, int] = {}
+    for i, record in enumerate(data):
+        rid = get_field(record, "id")
+        if rid is None:
+            continue
+        labels_by_row_id[int(rid)] = int(y_class[i])
 
-        y_class[i] = max(1, min(3, y_rounded))
+    num_clusters = config.NUM_CLUSTERS
 
     scaler_z = StandardScaler()
     X_norm = scaler_z.fit_transform(X)
@@ -164,19 +167,7 @@ def get_training_data():
     cluster_idx = kmeans.fit_predict(X_norm)
     cluster_to_class = map_clusters_to_classes(y_class, cluster_idx)
 
-    raw_out = np.vectorize(lambda k: cluster_to_class.get(k, -1))(cluster_idx)
-    # Invalid cluster→class mappings are rare; use class 2 so SGD and telemetry stay aligned.
-    outputs = np.asarray(
-        [int(v) if int(v) in (1, 2, 3) else 2 for v in raw_out],
-        dtype=float,
-    )
-
-    labels_by_row_id: dict[int, int] = {}
-    for i, record in enumerate(data):
-        rid = get_field(record, "id")
-        if rid is None:
-            continue
-        labels_by_row_id[int(rid)] = int(outputs[i])
+    outputs = np.vectorize(lambda k: cluster_to_class.get(k, -1))(cluster_idx)
 
     class_centroids = {}
     for class_label in (1, 2, 3):

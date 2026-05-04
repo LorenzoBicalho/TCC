@@ -55,24 +55,32 @@ def check_internet_connection(timeout: float = 2.0) -> bool:
         return False
 
 
-def _buzz(duration: float, repeat: int = 1, pause: float = 0.1):
+def _buzz(duration: float, repeat: int = 1, pause: float = 0.1, *, frequency_hz: float = 2000.0, duty_cycle: float = 50.0):
     if not GPIO_AVAILABLE:
         print("buzz " * repeat)
         return
 
     try:
-        for _ in range(repeat):
-            GPIO.output(BUZZER_PIN, GPIO.HIGH)
-            time.sleep(duration)
-            GPIO.output(BUZZER_PIN, GPIO.LOW)
-            time.sleep(pause)
-
-    except Exception:
-        pass
+        pwm = GPIO.PWM(BUZZER_PIN, frequency_hz)
+        try:
+            for _ in range(repeat):
+                pwm.start(duty_cycle)
+                time.sleep(duration)
+                pwm.stop()
+                time.sleep(pause)
+        finally:
+            try:
+                pwm.stop()
+            except Exception:
+                pass
+    except Exception as e:
+        # Don't fail the app if hardware isn't accessible,
+        # but do surface the cause for debugging.
+        print(f"Buzz failed: {e!r}")
 
 
 def aggressive_buzz():
-    _buzz(duration=0.15, repeat=5, pause=0.1)
+    _buzz(duration=0.2, repeat=5, pause=0.1)
 
 
 def require_internet_buzz(is_connected=False):
