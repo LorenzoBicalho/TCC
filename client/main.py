@@ -32,7 +32,7 @@ def train_thread(stop_event, device_id):
         try:
             print("Checking data count \n")
             data_count = featuresRepository.get_data_count()
-            if  data_count >= 300:
+            if  data_count >= 1600:
                 if hardware.check_internet_connection():
                     print(f"Training new model with {data_count} samples")
                     trained_params, metrics, num_samples, version, labels_by_row_id = (

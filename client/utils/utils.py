@@ -1,3 +1,4 @@
+from math import sqrt
 import numpy as np
 import config
 
@@ -7,8 +8,13 @@ def format_data(state):
     with state.lock:
         ax = state.features.get("accel_x") or []
         ay = state.features.get("accel_y") or []
-        accel_x_avg = sum(ax) / (len(ax) + EPSILON)
-        accel_y_avg = sum(ay) / (len(ay) + EPSILON)
+        # accel_x_avg = sum(ax) / (len(ax) + EPSILON)
+        # accel_y_avg = sum(ay) / (len(ay) + EPSILON)
+        acc_norm = (
+            sum(sqrt(x**2 + y**2) for x, y in zip(ax, ay)
+            ) / (len(ax) + EPSILON)
+        )
+        delta_acc_lat = (max(ay) - min(ay) if ay else 0)
         rpm = state.features.get("rpm", 300)
         speed = state.features.get("speed", 10)
         pos_pedal = state.features.get("pos_pedal", 16)
@@ -19,10 +25,10 @@ def format_data(state):
 
     return {
         "speed": speed,
-        "acc_long": accel_x_avg,
-        "acc_lat": accel_y_avg,
+        "acc_long": acc_norm,
         "engine_speed": rpm,
         "throttle_position": pos_pedal,
+        "acc_lat": delta_acc_lat,
     }
 
 def get_field(obj, name):
