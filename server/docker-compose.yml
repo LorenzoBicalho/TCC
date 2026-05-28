@@ -3,6 +3,8 @@ services:
   # ── PostgreSQL ───────────────────────────────────────────────────────────────
   db:
     image: postgres:16-alpine
+    ports:
+      - "5432:5432"
     container_name: driving_db
     restart: unless-stopped
     healthcheck:
