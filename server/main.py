@@ -62,7 +62,7 @@ def latest_model_endpoint(payload: LatestModelRequest, db: DbDependency):
 @app.post("/weights", response_model=SubmitWeightsResponse)
 def submit_weights_endpoint(payload: SubmitWeightsRequest, db: DbDependency, background_tasks: BackgroundTasks):
     try:
-        background_tasks.add_task(run_aggregation_background)
+        # background_tasks.add_task(run_aggregation_background)
         return submit_client_weights(db, payload)
 
     except ValueError as exc:
